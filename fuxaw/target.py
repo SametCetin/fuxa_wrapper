@@ -1,10 +1,10 @@
 """Hedef FUXA sunucusu ile konuşma (REST API).
 
 fuxaw.json "target" alanı:
-  {"ssh": "hypervm", "port": 1881, "local_port": 11881, "backup_dir": "C:\\sct\\fuxa1_prj"}
-      -> SSH tüneli açılır (zaten açıksa kullanılır), yedek hedef makinede alınır.
   {"url": "http://127.0.0.1:1881"}
-      -> doğrudan HTTP (test / yerel FUXA), yedek proje klasöründe .fuxaw/backups'a alınır.
+      -> doğrudan HTTP (yerel FUXA, ör. 'fuxaw designer'), yedek proje klasöründe .fuxaw/backups'a alınır.
+  {"ssh": "<alias>", "port": 1881, "local_port": 11881, "backup_dir": "C:\\<yedek klasörü>"}
+      -> uzak makinedeki FUXA: SSH tüneli açılır (zaten açıksa kullanılır), yedek hedef makinede alınır.
 """
 import datetime
 import json

@@ -5,7 +5,9 @@ Bu dosya, bu klasörde çalışan AI asistanlar (Claude Code vb.) ve geliştiric
 Kullanıcıyla Türkçe konuş.
 
 Bu repo sadece **wrapper kodunu** içerir. Wrapper'ın yönettiği FUXA projeleri ayrı bir repoda:
-`C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler (tag/ekran tabloları, PLC referansı, değişiklik geçmişi, açık konular) oradaki `AGENTS.md` ve `README.md`'dedir. Canlı FUXA'ya dokunan işlerde önce o dosyaları oku.
+`C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler (tag/ekran tabloları, PLC referansı, değişiklik geçmişi, açık konular) oradaki `AGENTS.md` ve `README.md`'dedir.
+
+**Şu anki çalışma şekli (2026-10-02):** kullanıcı designer'ı kendi makinesinde, `fuxaw designer` ile kurulan yerel FUXA üzerinde test ediyor. Uzak hedefe (SSH) dair ortam notları bu repodan kaldırıldı; gerekiyorsa proje reposuna bak.
 
 > Geçmiş: wrapper 2026-10-02'de `fuxa_projects/wrapper/` altında yazıldı, aynı gün bu repoya (`C:\sct\syncthing\repohf_sync\fuxa_wrapper`) taşındı.
 
@@ -14,10 +16,13 @@ Bu repo sadece **wrapper kodunu** içerir. Wrapper'ın yönettiği FUXA projeler
 - Sadece Python standart kütüphanesi (3.12, ek paket yok).
 - `fuxaw/model.py`: proje JSON ↔ öğeler (cihaz, ekran, script, layout…), normalize etme.
 - `fuxaw/store.py`: proje klasörü: `fuxaw.json` (ayarlar), `src/` (öğe başına dosya), `.fuxaw/` (senkron durumu), export JSON'ları. `find_project` cwd'den yukarı doğru, sonra bir alt klasörde `fuxaw.json` arar.
-- `fuxaw/target.py`: hedef FUXA: SSH tüneli, REST çağrıları, hedefte yedek.
+- `fuxaw/target.py`: hedef FUXA: REST çağrıları, yedek, (uzak hedefte) SSH tüneli.
+- `fuxaw/designer.py`: yerel FUXA: Node.js/FUXA kontrolü ve kurulumu, başlatma/durdurma (bkz. §4).
 - `fuxaw/sync.py`: yerel / hedef / taban üçlü karşılaştırma, publish planı, pull birleştirme.
 - `fuxaw/lint.py`: aşağıdaki "Tuzaklar"ın kural hali + kırık tag/script referansları.
-- `fuxaw/cli.py`: komutlar (`status`, `diff`, `pull`, `publish`, `lint`, `build`, `backup`, `init`).
+- `fuxaw/ops.py`: CLI ve arayüzün **ortak** işlemleri (status, diff, pull, publish, tag tablosu, yerel FUXA'ya yükleme). İlerleme `log` ile verilir, sonuç `{"rc": ...}` sözlüğü. İş mantığı buraya yazılır; cli.py ve web.py sadece sunar.
+- `fuxaw/cli.py`: komutlar (`status`, `diff`, `pull`, `publish`, `lint`, `build`, `backup`, `init`, `designer`, `ui`).
+- `fuxaw/web.py` + `fuxaw/static/`: web arayüzü (bkz. §4b). Derleme adımı yok; düz HTML/CSS/JS.
 - `fuxaw.cmd`: başlatıcı (`PYTHONPATH` = bu klasör). Proje reposundan çağrılır.
 
 ## 2. Test
@@ -26,7 +31,7 @@ Bu repo sadece **wrapper kodunu** içerir. Wrapper'ın yönettiği FUXA projeler
 python -m unittest discover -s tests -v
 ```
 
-(repo kökünden). Testler `tests/mock_fuxa.py` sahte sunucusunu ve `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır; hypervm gerekmez. Sahte sunucu FUXA'nın bilinen davranışlarını taklit eder (her GET'te tag value/timestamp değişir, aynı adlı ekran sessizce atlanır). FUXA'da yeni bir davranış öğrenirsen sahte sunucuya ve teste de ekle. Durum: 11 test geçiyor (2026-10-02).
+(repo kökünden). Testler `tests/mock_fuxa.py` sahte sunucusunu ve `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır; gerçek FUXA gerekmez. Sahte sunucu FUXA'nın bilinen davranışlarını taklit eder (her GET'te tag value/timestamp değişir, aynı adlı ekran sessizce atlanır). FUXA'da yeni bir davranış öğrenirsen sahte sunucuya ve teste de ekle. `test_web.py` arayüz sunucusunu rastgele portta açıp API'yi ve güvenlik kontrollerini dener. Durum: 22 test geçiyor (2026-10-02).
 
 ## 3. Tasarım kararları
 
@@ -35,10 +40,31 @@ python -m unittest discover -s tests -v
 - Publish: hedefte `backup_before_fuxaw_<tarih_saat>.json` yedeği → sadece değişen öğeler → tekrar okuyup doğrulama → export JSON'larını (`<ad>_live.json`, `<ad>-devices_live.json`) güncelleme. Lint hatası veya çakışmada durur; `--force`/`--no-lint` sadece kullanıcı isterse.
 - Çıkış kodları: 0 tamam, 1 hata/ulaşılamadı/lint hatası, 2 durduruldu (çakışma, lint, onay yok), 3 gönderim yarıda kaldı veya doğrulama tutmadı.
 - `.fuxaw/base.json` silinirse "taban yok" denir ve her fark çakışma sayılır; `pull --force` (hedef doğru) veya `publish --force` (yerel doğru) ile yeniden kurulur.
-- **SSH tüneli:** `local_port`'ta (varsayılan 11881) zaten tünel varsa onu kullanır, yoksa kendi `ssh -N` sürecini açar ve iş bitince **sadece onu** kapatır. Uzak tarafta `127.0.0.1` kullanılır (`localhost` ::1'e gidiyor, FUXA orada dinlemiyor).
+- **SSH tüneli (uzak hedef):** `local_port`'ta (varsayılan 11881) zaten tünel varsa onu kullanır, yoksa kendi `ssh -N` sürecini açar ve iş bitince **sadece onu** kapatır. Uzak tarafta `127.0.0.1` kullanılır (`localhost` ::1'e gidiyor, FUXA orada dinlemiyor).
 - `src/` dosyaları LF ve girintili JSON yazılır (`.gitattributes` bununla uyumlu olmalı).
+- **Publish sırası:** ekran silmeleri → set'ler (cihaz, script, …, ekran, layout) → diğer silmeler. Ekran silmeleri önce, çünkü FUXA `set-view`'ı aynı adlı başka ekran varken sessizce atlar (ör. hedefteki "MainView" yerelde farklı id ile yeniden oluşturulmuşsa). Bu hata 2026-10-02'de designer'a yüklemede görüldü.
 
-## 4. FUXA REST API (1.3.4, kimlik doğrulama yok, `secureEnabled: false`)
+## 4. Yerel designer (`fuxaw designer`)
+
+- `fuxaw designer [start|stop|status] [--port 1881] [--fuxa-version 1.3.4] [-y] [--no-browser]`. Proje gerektirmez.
+- Açılışta kontrol: Node.js (önce uygulama klasörü, sonra PATH, `Program Files\nodejs`). Yoksa **winget** ile `OpenJS.NodeJS.LTS` kurulur (MSI, UAC onayı ister). winget yoksa veya başarısızsa nodejs.org'dan en yeni LTS win-x64 zip'i uygulama klasörüne açılır (yönetici izni gerekmez). winget'i uygulamaya gömmek yerine bu yol seçildi: winget'in MSIX paketi VCLibs/UI.Xaml bağımlılıkları ve App Installer kaydı ister, LTSC/Server sürümlerinde sorun çıkarır.
+- FUXA npm ile `%LOCALAPPDATA%\fuxaw\fuxa` altına kurulur (global değil). Sürüm farklıysa yeniden kurulur. Kurulumlar onay ister; `-y` onayı atlar.
+- FUXA `node main.js --port N` ile, cwd = `%LOCALAPPDATA%\fuxaw\data` (proje verisi `data\_appdata`), ayrık süreç olarak başlar; çıktı `logs\fuxa.log`, pid `designer.json`. `/api/settings` cevap verince hazır sayılır, tarayıcıda `/editor` açılır. `stop` sadece fuxaw'ın başlattığı süreci kapatır.
+- Uygulama klasörü `FUXAW_DATA` ortam değişkeniyle değiştirilebilir.
+- 2026-10-02 bu makinede denendi: winget → Node.js v24.19.0, FUXA 1.3.4 npm ile kuruldu ve çalıştı. npm 11, `sqlite3` kurulum betiğini "allow-scripts" yüzünden çalıştırmadı ama paket hazır derlenmiş `node_sqlite3.node` ile geliyor; proje kaydetme/okuma API ile doğrulandı.
+
+## 4b. Web arayüzü (`fuxaw ui`)
+
+- `fuxaw ui [--root DIR]... [--port 8765] [--no-browser]`. `ThreadingHTTPServer`, sadece `127.0.0.1`. Uçlar ve açıklamaları `web.py` başındaki docstring'de.
+- **Güvenlik:** Host başlığı `127.0.0.1:<port>`/`localhost:<port>` değilse 403 (DNS rebinding). POST'lar `X-Fuxaw: 1` başlığı ister; başka bir sitenin tarayıcı üzerinden publish/pull tetiklemesini engeller (özel başlık CORS ön kontrolü gerektirir, sunucu CORS'a izin vermez). `path` parametresi sadece bulunan projelerden biri olabilir. Bu kontrolleri gevşetme; PLC'ye yazan bir hedefe publish edilebiliyor.
+- Yazan işlemler (`pull`, `publish`, `load`, designer start) tek kilitle sırayla çalışır.
+- Arayüzde onay her zaman önce dry-run planı gösterilerek alınır; `--no-lint` arayüzde yok. Çakışmada "Zorla gönder" / "Hedefteki hali al" seçenekleri uyarıyla sunulur.
+- Proje arama kökleri: komut satırı `--root` + `%LOCALAPPDATA%\fuxaw\ui.json` (arayüzden eklenenler). Kök ve 2 alt seviye taranır (`.git`, `node_modules`, `src`, `.fuxaw` atlanır).
+- "Designer'a yükle" (`ops.load_into`): yerel src/'yi yerel FUXA'ya taban olmadan, force ile yükler; yerelde olmayan öğeleri o FUXA'dan siler, önce `%LOCALAPPDATA%\fuxaw\backups`'a yedek alır. Projenin hedefi ve `.fuxaw/` durumu değişmez.
+- Metinler DOM'a hep `textContent` ile basılır (`el()` yardımcısı); `innerHTML` kullanma (proje/tag adları dışarıdan gelir).
+- Uzak (SSH) hedefe ulaşılamazsa durum isteği SSH zaman aşımı kadar (~10–20 sn) sürer; arayüz bu sırada sarı nokta gösterir.
+
+## 5. FUXA REST API (1.3.4, kimlik doğrulama yok, `secureEnabled: false`)
 
 | İş                   | Çağrı                                                             |
 | -------------------- | ----------------------------------------------------------------- |
@@ -51,7 +77,7 @@ python -m unittest discover -s tests -v
 
 Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazılanlar ezilir (fuxaw bunu bir sonraki `status`'ta `[pull]`/`[ÇAKIŞMA]` olarak görür).
 
-## 5. FUXA proje JSON yapısı (lint ve model için)
+## 6. FUXA proje JSON yapısı (lint ve model için)
 
 - Tag id `t_xxxxxxxx-xxxxxxxx`; ekran öğesi id önekleri: `HXB_` (html_button), `HXT_` (html_switch), `VAL_` (value), `HXI_` (html_input), `svg_` (şekil).
 - Renk (`property.ranges`): button için `type: 2`, `color` = arka plan, `stroke` = yazı. Değer `Number(value)` ile karşılaştırılır (true→1). Yeni öğenin varsayılan aralığı `min 20 – max 80`, renk boş; Boolean'da hiç eşleşmez. Boolean için `{min:0,max:0}` / `{min:1,max:1}`.
@@ -63,7 +89,7 @@ Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazı
   - Momentary buton: `mousedown → "1"`, `mouseup → "0"`, `mouseout → "0"`.
 - Script objesi: `{"id","name","code","sync":false,"parameters":[],"mode":"SERVER"}`. Server script'te `$getTag(id)`, `await $setTag(id, v)`, `$getTagId('<tag adı>', '<cihaz adı>')`. Kullanıcı tercihi: script'lerde tag id değil **tag adı** (`$getTagId`) kullanılır; lint bu adların var olduğunu kontrol eder.
 
-## 6. Tuzaklar (lint kuralları bunlardan türetildi)
+## 7. Tuzaklar (lint kuralları bunlardan türetildi)
 
 1. **Boolean ADS tag'inde "Toggle value" kullanma** (FUXA 1.3.4 hatası): client `"false"` metnini gönderir, ADS sürücüsü `_toValue`'da `'boolean'` ile karşılaştırır ama tip `"Boolean"` olduğundan dönüşüm atlanır, `ads-client` `value ? 1 : 0` ile yazdığı için `"false"` TRUE olur. Aynı hata *Set value*'da `True`/`False` yazınca da var. Boolean ADS tag'ine yazılan değer **her zaman `1`/`0`** olmalı ya da server script gerçek boolean yazmalı.
 2. Switch (`html_switch`) `"0"`/`"1"` gönderdiği için sorunsuz.
@@ -71,15 +97,16 @@ Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazı
 
 Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.py`'ye kural, `mock_fuxa.py`'ye davranış ve teste örnek olarak ekle.
 
-## 7. Hedef ortam (bilgi)
+## 8. Bilinen ortam kısıtları
 
-- Varsayılan hedef: `ssh hypervm` (Windows, uzak shell cmd.exe), FUXA 1.3.4 port 1881, dışarıdan sadece SSH tüneliyle. Ayrıntılar proje reposunun README'sinde.
-- FUXA kurulum dosyalarına (hypervm, `node_modules\@frangoteam\fuxa\...`) Claude'un yazması izin sisteminde engelli; yama gerekiyorsa kullanıcıya ver.
+- Claude'un FUXA kurulum dosyalarına (`node_modules\@frangoteam\fuxa\...`) yazması izin sisteminde engelli olabilir; yama gerekiyorsa satırı ve değişikliği kullanıcıya ver, kullanıcı yapsın, sonra okuyarak doğrula.
+- FUXA veriyi çalışma klasöründeki `_appdata`'ya yazar; başka klasörden başlatılırsa boş proje açılır (veri silinmez). `designer.py` bu yüzden FUXA'yı hep `data\` klasöründen başlatır.
 
-## 8. Yol haritası
+## 9. Yol haritası
 
 1. Çekirdek CLI ✅ (2026-10-02, sahte sunucuyla test edildi)
-2. **Gerçek hedefle doğrulama** (açık): hypervm 2026-10-02'de SSH'a cevap vermiyordu; proje `init --from-file` ile kuruldu. hypervm açılınca proje reposunda `fuxaw status` → gerekirse `fuxaw pull` → zararsız bir değişiklikle `publish -n` / `publish`.
-3. Web arayüzü: tag tablosu (çoklu seçim, kullanım yerleri), script editörü, buton sihirbazları (toggle/momentary/lamba), üst barda proje/hedef durumu.
-4. Staging FUXA (hypervm'de ikinci örnek, ayrı port ve `_appdata`) ile tasarım/önizleme.
-5. TwinCAT değişken seçici (GVL'den), ek lint kuralları.
+2. Yerel designer ✅ (2026-10-02): `fuxaw designer` bileşenleri kurar, FUXA'yı başlatır, editörü açar.
+3. Web arayüzü 1. sürüm ✅ (2026-10-02): proje seçimi, durum/fark, pull/publish (plan + onay), tag tablosu (filtre, çoklu seçim, kullanım yerleri), lint, designer kontrolü, projeyi designer'a yükleme. Tarayıcıda yerel FUXA'ya karşı denendi.
+4. Web arayüzü 2. sürüm: tag düzenleme (ekle/yeniden adlandır, adresi değiştir; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba), arayüzden yeni proje (`init`).
+5. Gerçek bir hedefle uçtan uca doğrulama (`status` → `pull` → `publish -n` → `publish`).
+6. TwinCAT değişken seçici (GVL'den), ek lint kuralları.

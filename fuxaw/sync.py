@@ -91,7 +91,11 @@ def publish_plan(entries, force=False, raw_target=None):
             skipped.append(e)  # tekil tür silinemez
     dorder = {k: i for i, k in enumerate(model.DELETE_ORDER)}
     dels.sort(key=lambda x: dorder.get(x[1].kind, 99))
-    return sets + dels, skipped, blocked
+    # Ekran silmeleri önce: FUXA set-view'ı aynı adlı başka ekran varken sessizce atlar
+    # (ör. hedefteki "MainView" farklı id ile yerelde yeniden oluşturulmuşsa).
+    view_dels = [d for d in dels if d[1].kind == "view"]
+    other_dels = [d for d in dels if d[1].kind != "view"]
+    return view_dels + sets + other_dels, skipped, blocked
 
 
 def pull_merge(local, base, entries, force=False):

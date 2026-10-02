@@ -187,6 +187,20 @@ class TestFlow(Base):
         self.assertEqual(rc, 0, o)
         self.assertEqual(self.mock.calls[-1], ("del-view", "v_new"))
 
+    def test_view_recreated_with_same_name(self):
+        # Yerelde MainView yeni id ile yeniden oluşturuldu: eski ekran set-view'dan önce silinmeli,
+        # yoksa FUXA aynı ad yüzünden yenisini kaydetmez.
+        with open(self.src("views", "MainView.json"), encoding="utf-8") as f:
+            v = json.load(f)
+        v["id"] = "v_recreated"
+        with open(self.src("views", "MainView.json"), "w", encoding="utf-8") as f:
+            json.dump(v, f)
+        rc, o = self.cli("publish", "--yes", "--force")
+        self.assertEqual(rc, 0, o)
+        self.assertEqual([(c, i) for c, i in self.mock.calls if c in ("set-view", "del-view")],
+                         [("del-view", VIEW), ("set-view", "v_recreated")])
+        self.assertEqual([x["id"] for x in self.mock.project["hmi"]["views"]], ["v_recreated"])
+
     def test_duplicate_view_name_is_lint_error(self):
         with open(self.src("views", "MainView.json"), encoding="utf-8") as f:
             v = json.load(f)
