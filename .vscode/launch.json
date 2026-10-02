@@ -1,0 +1,49 @@
+{
+  // Listede sadece iki giriş var:
+  //   Debug   = uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır (proje uygulamadan açılır)
+  //   Release = kurulum paketini dist/ altına üretir (npm run dist)
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Release",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dist"],
+      "console": "integratedTerminal",
+      "presentation": { "order": 2 }
+    },
+    {
+      "name": "Debug: ana süreç",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": [".", "--remote-debugging-port=9223"],
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"],
+      "presentation": { "hidden": true }
+    },
+    {
+      "name": "Debug: pencere arayüzü",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9223,
+      "webRoot": "${workspaceFolder}/src/renderer",
+      "timeout": 30000,
+      "presentation": { "hidden": true }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug",
+      "configurations": ["Debug: ana süreç", "Debug: pencere arayüzü"],
+      "stopAll": true,
+      "presentation": { "order": 1 }
+    }
+  ]
+}

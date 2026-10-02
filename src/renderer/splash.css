@@ -1,0 +1,53 @@
+:root {
+  --bg: #1e1f22;
+  --text: #e3e5e8;
+  --muted: #a0a4ab;
+  --track: #3f4147;
+  --accent: #3b82f6;
+  font-family: "Segoe UI", system-ui, -apple-system, Ubuntu, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #ffffff; --text: #111827; --muted: #6b7280; --track: #e5e7eb; color-scheme: light; }
+}
+
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  user-select: none;
+  -webkit-app-region: drag; /* çerçevesiz pencere sürüklenebilsin */
+  border: 1px solid var(--track);
+  box-sizing: border-box;
+}
+main { width: 320px; }
+h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: 0.5px; }
+p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+.bar {
+  position: relative;
+  height: 4px;
+  margin: 28px 0 10px;
+  background: var(--track);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: slide 1.3s ease-in-out infinite;
+}
+@keyframes slide {
+  from { left: -35%; }
+  to { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar span { animation-duration: 3s; }
+}
+.status { font-size: 12px; }

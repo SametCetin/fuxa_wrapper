@@ -1,5 +1,5 @@
-__pycache__/
-*.pyc
-# Testler geçici klasörde çalışır; elle denemelerde kalan senkron durumu
-.fuxaw/
-backup_*.json
+node_modules/
+fuxa-runtime/node_modules/
+vendor/
+dist/
+*.tmp

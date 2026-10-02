@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>fuxaw</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <nav class="tabs">
+    <div id="tabs" class="tab-buttons">
+      <button data-tab="editor" class="active">Editör</button>
+      <button data-tab="tags">Taglar</button>
+      <button data-tab="lint">Kontrol <span id="lintBadge" class="badge" hidden></span></button>
+    </div>
+    <div class="spacer"></div>
+    <div id="projectInfo" class="project-info"></div>
+    <span id="engineChip" class="chip" hidden></span>
+  </nav>
+
+  <main id="content">
+    <section id="pane-editor" class="pane active">
+      <div id="editorHost"><div class="placeholder" id="editorPlaceholder">Editör yükleniyor…</div></div>
+    </section>
+
+    <section id="pane-tags" class="pane">
+      <div class="pane-bar">
+        <input id="tagFilter" type="search" placeholder="Ara: ad, adres, cihaz…">
+        <select id="tagDevice"><option value="">Tüm cihazlar</option></select>
+        <label class="check"><input type="checkbox" id="tagUnused"> Kullanılmayanlar</label>
+        <div class="spacer"></div>
+        <span id="tagCount" class="muted"></span>
+        <button id="btnTagAdd" class="primary">Yeni tag</button>
+        <button id="btnTagCopy" title="Görünen satırları Excel'e yapıştırılabilir biçimde kopyala">Kopyala</button>
+        <button id="btnTagRefresh">Yenile</button>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Ad</th><th>Tip</th><th>Adres</th><th>Cihaz</th><th class="num">Kullanım</th></tr></thead>
+          <tbody id="tagBody"></tbody>
+        </table>
+      </div>
+      <div id="tagUses" class="uses" hidden></div>
+    </section>
+
+    <section id="pane-lint" class="pane">
+      <div class="pane-bar">
+        <span class="muted">Bilinen editör tuzakları ve kırık tag/script referansları. HATA varsa publish yapılmaz.</span>
+        <div class="spacer"></div>
+        <button id="btnLintRefresh">Yenile</button>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Seviye</th><th>Yer</th><th>Mesaj</th></tr></thead>
+          <tbody id="lintBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="welcome" class="welcome">
+      <div class="welcome-box">
+        <h1>fuxaw</h1>
+        <p class="muted">HMI projeleri: tasarla, kaydet (.fxprj), hedef makine için klasöre publish et.</p>
+        <div class="welcome-actions">
+          <button id="wNew" class="primary big">Yeni Proje</button>
+          <button id="wOpen" class="big">Proje Aç…</button>
+        </div>
+        <h2>Son projeler</h2>
+        <ul id="recentList" class="recent"></ul>
+        <p id="welcomeStatus" class="muted small"></p>
+        <button id="btnRetry" hidden>Bileşenleri yeniden başlat</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="statusText"></span>
+    <div class="spacer"></div>
+    <span id="statusPath" class="muted"></span>
+  </footer>
+
+  <div id="modal" class="modal" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle"></h2>
+      <div id="modalBody"></div>
+      <div class="dialog-buttons" id="modalButtons"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

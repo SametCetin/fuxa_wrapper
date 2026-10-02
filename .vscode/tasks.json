@@ -1,0 +1,13 @@
+{
+  // Ctrl+Shift+B = Release (kurulum paketi, dist/). Debug için Çalıştır ve Hata Ayıkla → "Debug".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Release",
+      "type": "npm",
+      "script": "dist",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}

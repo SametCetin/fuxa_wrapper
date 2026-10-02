@@ -1,7 +1,7 @@
-# fuxaw src/ dosyaları LF yazar; Windows'ta CRLF'e çevrilip sahte fark çıkmasın
-*.json text eol=lf
-*.js   text eol=lf
-*.py   text eol=lf
-*.md   text eol=lf
-*.cmd  text eol=crlf
-*.ps1  text eol=crlf
+# Kaynak ve .fxprj dosyaları LF; Windows'ta CRLF'e çevrilip sahte fark çıkmasın
+*.json  text eol=lf
+*.fxprj text eol=lf
+*.js    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf

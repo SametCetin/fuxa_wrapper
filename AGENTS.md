@@ -1,83 +1,102 @@
-# AGENTS.md – fuxaw (FUXA proje wrapper'ı) geliştirme kuralları
+# AGENTS.md – fuxaw (FUXA projeleri için masaüstü uygulaması) geliştirme kuralları
 
 Bu dosya, bu klasörde çalışan AI asistanlar (Claude Code vb.) ve geliştiriciler için yazıldı. Kullanım ve genel bakış: [README.md](README.md).
 
 Kullanıcıyla Türkçe konuş.
 
-Bu repo sadece **wrapper kodunu** içerir. Wrapper'ın yönettiği FUXA projeleri ayrı bir repoda:
-`C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler (tag/ekran tabloları, PLC referansı, değişiklik geçmişi, açık konular) oradaki `AGENTS.md` ve `README.md`'dedir.
+Bu repo sadece **uygulama kodunu** içerir. Yönetilen FUXA projeleri ayrı bir repoda:
+`C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler oradaki `AGENTS.md` ve `README.md`'dedir.
 
-**Çalışma şekli (kullanıcının kararı, 2026-10-02):**
-- fuxaw **sadece bu makinedeki FUXA'ya** (127.0.0.1/localhost) publish eder; bu test içindir (`fuxaw designer` ile kurulan yerel FUXA).
-- Hedef makineye ağ üzerinden **hiçbir şey gönderilmez**. SSH/tünel desteği tamamen silindi; geri ekleme. `target.py` yerel olmayan adresi ve `ssh` alanını reddeder.
-- Hedef makine için `fuxaw export` proje JSON'unu ve nereye/nasıl koyulacağını anlatan README'yi bir klasöre yazar; klasör elle taşınır. Basit tut.
+**Ürün (kullanıcının kararı, 2026-10-02):** kendi penceresi olan bir masaüstü uygulaması. Electron, tüm işletim sistemleri.
+- Menü: **Yeni Proje, Aç, Kaydet, Farklı Kaydet, Son Projeler, Publish (sadece klasöre)**.
+- Proje dosyası **`.fxprj`**: tek dosya, girintili JSON (bkz. §3).
+- Ekranlar pencerenin içine gömülü FUXA editöründe tasarlanır. FUXA uygulamanın içinde gelir (Node.js dahil); kullanıcı ayrıca bir şey kurmaz.
+- **Uygulamanın kendi arayüzünde FUXA adı geçmez** (menü, pencere, mesajlar, hata metinleri, lint mesajları, günlük dosyası adı `engine.log`). İç bileşenden "editör bileşeni" / "bileşenler" diye söz edilir. Açılışta çerçevesiz bir açılış penceresi (uygulama adı + sonsuz kayan bar + "Bileşenler yükleniyor…") gösterilir; ana pencere bileşen hazır olunca açılır. İstisnalar: kod içi yorum/değişken adları, publish README'si (hedef makinedeki FUXA editörünü tarif etmek zorunda) ve gömülü editörün kendi metinleri / proje verisi (ör. "FUXA Server" cihazı). Editörün kendi FUXA yazıları (Yardım, About, logo) **gizlenmez**; kural sadece bizim yazdığımız metinler için (kullanıcı kararı, 2026-10-02).
+- Hedef makineye ağ üzerinden **hiçbir şey gönderilmez**. Publish proje JSON'unu ve README'yi bir klasöre yazar, klasör elle taşınır. SSH/uzak FUXA desteği geri eklenmez.
 
-> Geçmiş: wrapper 2026-10-02'de `fuxa_projects/wrapper/` altında yazıldı, aynı gün bu repoya (`C:\sct\syncthing\repohf_sync\fuxa_wrapper`) taşındı.
+> Geçmiş: 2026-10-02'de önce Python CLI + tarayıcıda web arayüzü olarak yazıldı (`fuxaw/`, `fuxaw.cmd`). Kullanıcı "kendi penceresi olan uygulama" istediği için aynı gün Electron'a geçildi; Python kodu silindi (git geçmişinde: `f9d788c`). Üç hal senkronu (yerel/hedef/taban, pull) yeni modelde gerekmediği için taşınmadı.
 
 ## 1. Kod yapısı
 
-- Sadece Python standart kütüphanesi (3.12, ek paket yok).
-- `fuxaw/model.py`: proje JSON ↔ öğeler (cihaz, ekran, script, layout…), normalize etme.
-- `fuxaw/store.py`: proje klasörü: `fuxaw.json` (ayarlar), `src/` (öğe başına dosya), `.fuxaw/` (senkron durumu), export JSON'ları. `find_project` cwd'den yukarı doğru, sonra bir alt klasörde `fuxaw.json` arar.
-- `fuxaw/target.py`: yerel test FUXA'sı: REST çağrıları, yedek (proje klasöründe `.fuxaw/backups`). Adres yerel değilse hata.
-- `fuxaw/designer.py`: yerel FUXA: Node.js/FUXA kontrolü ve kurulumu, başlatma/durdurma (bkz. §4).
-- `fuxaw/sync.py`: yerel / hedef / taban üçlü karşılaştırma, publish planı, pull birleştirme.
-- `fuxaw/lint.py`: aşağıdaki "Tuzaklar"ın kural hali + kırık tag/script referansları.
-- `fuxaw/ops.py`: CLI ve arayüzün **ortak** işlemleri (status, diff, pull, publish, export, tag tablosu). İlerleme `log` ile verilir, sonuç `{"rc": ...}` sözlüğü. İş mantığı buraya yazılır; cli.py ve web.py sadece sunar.
-- `fuxaw/cli.py`: komutlar (`status`, `diff`, `pull`, `publish`, `lint`, `build`, `backup`, `init`, `designer`, `ui`).
-- `fuxaw/web.py` + `fuxaw/static/`: web arayüzü (bkz. §4b). Derleme adımı yok; düz HTML/CSS/JS.
-- `fuxaw.cmd`: **uygulamanın giriş noktası**. Python 3.10+ arar (PATH, `%LOCALAPPDATA%\Programs\Python\Python31x`, `Program Files`, `C:\Python31x`), yoksa winget ile Python 3.12 kurar; sonra `python -m fuxaw %*`. Komutsuz çalıştırmada (çift tıklama) hata olursa `pause` ile bekler. CRLF ve ASCII olmalı.
-- Komutsuz `fuxaw` = `fuxaw app` (`cli.cmd_app`): `designer.start(assume_yes=True)` (Node.js/FUXA kontrolü + kurulum + yerel FUXA) → arayüz zaten çalışıyorsa (`web.running`) sadece tarayıcı, değilse `web.serve`. Kullanıcının isteği: uygulama açılınca kontrol edip gerekirse sormadan kurar. Arayüz sunucusu `allow_reuse_address = False` (Windows'ta aynı porta ikinci sunucu bağlanmasın).
+Düz JavaScript (CommonJS), derleme adımı yok.
 
-## 2. Test
+- `src/core/`: Electron'dan bağımsız, testli çekirdek.
+  - `model.js`: proje temizleme (tag `value`/`timestamp` atılır, script CRLF→LF), değişiklik özeti (`digest`; SVG öznitelik sırası yok sayılır, bkz. §7), öğelere bölme (`splitProject`).
+  - `fxprj.js`: `.fxprj` okuma/yazma (atomik: geçici dosya + rename), düz FUXA JSON'unu içe aktarma, `safeName`.
+  - `lint.js`: §7 "Tuzaklar"ın kural hali + kırık tag/script referansları.
+  - `tags.js`: tag tablosu + kullanım yerleri; yeni tag (`buildTag`, `tagTypesFor`, `newTagId`).
+  - `publish.js`: klasöre çıkarma (proje JSON + README), lint hatasında yazmaz.
+- `.vscode/`: `launch.json` (Debug, Release) ve `tasks.json` (Release).
+- `src/main/`: Electron ana süreci.
+  - `main.js`: pencere, menü, IPC, proje işlemleri (yeni/aç/kaydet/publish), değişiklik takibi.
+  - `fuxa.js`: gömülü FUXA sunucusu: Node ve FUXA'yı bul, boş portta başlat, hazır olmasını bekle, durdur.
+  - `fuxaApi.js`: FUXA REST çağrıları.
+- `src/preload.js`: arayüzün ana süreçle tek kapısı (`window.fxw`).
+- `src/renderer/splash.html` + `splash.css`: açılış penceresi (betiksiz). `main.js` → `createSplash` / `revealMain` (en az 1,2 sn görünür; açılışta verilen `.fxprj` ana pencere görünmeden yüklenir).
+- `src/renderer/`: pencere arayüzü (Editör/Taglar/Kontrol sekmeleri; komutlar sadece menüde, ayrıca düğme yok; karşılama ekranı, Publish ve Yeni tag pencereleri). Metinler DOM'a hep `textContent` ile basılır (`el()`); `innerHTML` kullanma (proje/tag/dosya adları dışarıdan gelir).
+- `fuxa-runtime/package.json`: uygulamayla gelen FUXA sürümü (sabit `1.3.4`). `npm install` sonrası `postinstall` kurar.
+- `scripts/fetch-node.js`: kurulum paketine konacak Node.js'i `vendor/node/`'a indirir (sabit sürüm, SHA256 doğrulamalı).
+- `package.json` → `build`: electron-builder ayarları (NSIS / AppImage+deb / dmg, `.fxprj` dosya ilişkilendirme).
+
+## 2. Çalıştırma, test, paketleme
 
 ```bash
-python -m unittest discover -s tests -v
+npm install          # Electron + electron-builder; postinstall: Electron ikili dosyası + fuxa-runtime
+npm start            # geliştirme: PATH'teki (veya vendor/) Node ile FUXA'yı başlatır
+npm start -- C:\yol\proje.fxprj
+npm test             # node --test: çekirdek modüller (FUXA/Electron gerekmez)
+npm run dist:dir     # dist/win-unpacked (kurulumsuz deneme)
+npm run dist         # kurulum paketi (Windows'ta NSIS)
 ```
 
-(repo kökünden). Testler `tests/mock_fuxa.py` sahte sunucusunu ve `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır; gerçek FUXA gerekmez. Sahte sunucu FUXA'nın bilinen davranışlarını taklit eder (her GET'te tag value/timestamp değişir, aynı adlı ekran sessizce atlanır). FUXA'da yeni bir davranış öğrenirsen sahte sunucuya ve teste de ekle. `test_web.py` arayüz sunucusunu rastgele portta açıp API'yi ve güvenlik kontrollerini dener. Durum: 25 test geçiyor (2026-10-02).
+VS Code (kullanıcı isteği: sadece iki giriş): Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`) ve **Release** (`npm run dist`). `tasks.json`: Ctrl+Shift+B = Release. Proje uygulamanın içinden açılır.
+
+Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 19 test geçiyor (2026-10-02).
+
+Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `electron.exe`).
 
 ## 3. Tasarım kararları
 
-- **Üç hal:** her öğe yerel (`src/`), hedef (yerel test FUXA'sı) ve taban (son pull/publish, `.fuxaw/base.json`) olarak karşılaştırılır. Sadece yerelde değişen → publish; sadece hedefte → pull (publish dokunmaz); ikisinde → çakışma, durur.
-- Tag `value`/`timestamp` karşılaştırmada yok sayılır ve `src/`'ye yazılmaz; publish'te hedefteki değerler cihaz objesine geri konur.
-- Publish: `.fuxaw/backups/backup_before_fuxaw_<tarih_saat>.json` yedeği → sadece değişen öğeler → tekrar okuyup doğrulama → export JSON'larını (`<ad>_live.json`, `<ad>-devices_live.json`) güncelleme. Lint hatası veya çakışmada durur; `--force`/`--no-lint` sadece kullanıcı isterse.
-- Çıkış kodları: 0 tamam, 1 hata/ulaşılamadı/lint hatası, 2 durduruldu (çakışma, lint, onay yok), 3 gönderim yarıda kaldı veya doğrulama tutmadı.
-- `.fuxaw/base.json` silinirse "taban yok" denir ve her fark çakışma sayılır; `pull --force` (hedef doğru) veya `publish --force` (yerel doğru) ile yeniden kurulur.
-- `src/` dosyaları LF ve girintili JSON yazılır (`.gitattributes` bununla uyumlu olmalı).
-- **Publish sırası:** ekran silmeleri → set'ler (cihaz, script, …, ekran, layout) → diğer silmeler. Ekran silmeleri önce, çünkü FUXA `set-view`'ı aynı adlı başka ekran varken sessizce atlar (ör. hedefteki "MainView" yerelde farklı id ile yeniden oluşturulmuşsa). Bu hata 2026-10-02'de görüldü.
-- **Export** (`ops.export`): lint (hata varsa durur) → `<proje>/publish/<ad>/<ad>.json` (`model.join_project`, FUXA editöründe ☰ → *Open Project* ile açılır; editör bunu `POST /api/project` ile kaydeder, yerel FUXA'da birebir aynı yüklendiği doğrulandı) + `README.md` (hedef makinede nereye/nasıl: klasörü kopyala, önce *Save Project As...* ile yedek, sonra *Open Project*; cihaz/tag özeti). Çıktı klasörü `-o` ile değişir.
+- **`.fxprj` tek gerçek kaynaktır.** Açılınca proje gömülü FUXA'ya yüklenir (`POST /api/project`), editör pencerede açılır. **Kaydet** önce editörün bekleyen değişikliklerini sunucuya aktarır (§4), sonra `GET /api/project` ile okuyup `.fxprj`'e yazar.
+- `.fxprj` biçimi:
+  ```json
+  {"fxprj": 1, "name": "fuxa1", "fuxaVersion": "1.3.4", "publish": {"dir": "publish"}, "project": {...}}
+  ```
+  `fxprj` biçim sürümüdür; daha yenisi açılmaz ("uygulamayı güncelle"). `publish.dir` göreliyse `.fxprj` klasörüne göredir. Tag `value`/`timestamp` yazılmaz. Dosyada kayıt zamanı gibi her kayıtta değişen alan **yok** (git farkı temiz kalsın).
+- Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) **Aç** ile içe aktarılır; ilk kayıtta `.fxprj` yolu sorulur.
+- **Değişiklik takibi:** her 1,5 sn FUXA'daki projenin özeti dosyadakiyle karşılaştırılır + editördeki bekleyen düzenleme sayısı (§4). Kaydedilmemiş değişiklik varsa başlıkta `●`, Yeni/Aç/Kapat'ta "Kaydet / Kaydetme / İptal" sorulur.
+- **Publish** kaydedilmiş hali yazar; kaydedilmemiş değişiklik varsa önce kaydettirir. Önce plan (klasör, dosyalar, lint) gösterilir; lint HATA varsa yazmaz. Çıktı: `<publish.dir>/<ad>/<ad>.json` + `README.md` (hedef makinede ☰ → *Open Project*, önce *Save Project As* ile yedek, cihaz/tag özeti).
+- **Yeni tag** (Taglar sekmesi): cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri), açıklama. `core/tags.js` → `buildTag` editörün biçimini üretir (ADS: tip `Boolean/Number/String` + adres; FuxaServer/internal: küçük harfli tip + `init` + `label`; diğer cihazlarda cihazdaki mevcut tipler). Ekleme: editör flush → `GET` → `set-device` (cihaz bağlantısı bir an kopar) → editör yeniden yüklenir (bellekteki eski cihaz kopyası yeni tag'i ezmesin). Dosyaya yazmak için kaydetmek gerekir.
+- Yeni proje "Adsız" açılır; ilk kayıtta dosya adı proje adı olur.
+- Tek örnek (single instance): ikinci açılış (ör. `.fxprj`'e çift tıklama) mevcut pencerede açar.
+- Son projeler: `<userData>/recent.json` (en fazla 10).
 
-## 4. Yerel designer (`fuxaw designer`)
+## 4. Gömülü FUXA ve editör
 
-- `fuxaw designer [start|stop|status] [--port 1881] [--fuxa-version 1.3.4] [-y] [--no-browser]`. Proje gerektirmez.
-- Açılışta kontrol: Node.js (önce uygulama klasörü, sonra PATH, `Program Files\nodejs`). Yoksa **winget** ile `OpenJS.NodeJS.LTS` kurulur (MSI, UAC onayı ister). winget yoksa veya başarısızsa nodejs.org'dan en yeni LTS win-x64 zip'i uygulama klasörüne açılır (yönetici izni gerekmez). winget'i uygulamaya gömmek yerine bu yol seçildi: winget'in MSIX paketi VCLibs/UI.Xaml bağımlılıkları ve App Installer kaydı ister, LTSC/Server sürümlerinde sorun çıkarır.
-- FUXA npm ile `%LOCALAPPDATA%\fuxaw\fuxa` altına kurulur (global değil). Sürüm farklıysa yeniden kurulur. Kurulumlar onay ister; `-y` onayı atlar.
-- FUXA `node main.js --port N` ile, cwd = `%LOCALAPPDATA%\fuxaw\data` (proje verisi `data\_appdata`), ayrık süreç olarak başlar; çıktı `logs\fuxa.log`, pid `designer.json`. `/api/settings` cevap verince hazır sayılır, tarayıcıda `/editor` açılır. `stop` sadece fuxaw'ın başlattığı süreci kapatır.
-- Uygulama klasörü `FUXAW_DATA` ortam değişkeniyle değiştirilebilir.
-- 2026-10-02 bu makinede denendi: winget → Node.js v24.19.0, FUXA 1.3.4 npm ile kuruldu ve çalıştı. npm 11, `sqlite3` kurulum betiğini "allow-scripts" yüzünden çalıştırmadı ama paket hazır derlenmiş `node_sqlite3.node` ile geliyor; proje kaydetme/okuma API ile doğrulandı.
-
-## 4b. Web arayüzü (`fuxaw ui`)
-
-- `fuxaw ui [--root DIR]... [--port 8765] [--no-browser]`. `ThreadingHTTPServer`, sadece `127.0.0.1`. Uçlar ve açıklamaları `web.py` başındaki docstring'de.
-- **Güvenlik:** Host başlığı `127.0.0.1:<port>`/`localhost:<port>` değilse 403 (DNS rebinding). POST'lar `X-Fuxaw: 1` başlığı ister; başka bir sitenin tarayıcı üzerinden publish/pull tetiklemesini engeller (özel başlık CORS ön kontrolü gerektirir, sunucu CORS'a izin vermez). `path` parametresi sadece bulunan projelerden biri olabilir. Bu kontrolleri gevşetme; yerel FUXA da PLC'ye bağlı olabilir.
-- Yazan işlemler (`pull`, `publish`, `export`, designer start) tek kilitle sırayla çalışır.
-- Arayüzde onay her zaman önce dry-run planı gösterilerek alınır; `--no-lint` arayüzde yok. Çakışmada "Zorla gönder" / "Hedefteki hali al" seçenekleri uyarıyla sunulur.
-- Proje arama kökleri: komut satırı `--root` + `%LOCALAPPDATA%\fuxaw\ui.json` (arayüzden eklenenler). Kök ve 2 alt seviye taranır (`.git`, `node_modules`, `src`, `.fuxaw` atlanır).
-- Metinler DOM'a hep `textContent` ile basılır (`el()` yardımcısı); `innerHTML` kullanma (proje/tag adları dışarıdan gelir).
+- Node: paketlenmişte `resources/node/`, geliştirmede `vendor/node/` → PATH → `Program Files\nodejs`. FUXA: paketlenmişte `resources/fuxa/node_modules/@frangoteam/fuxa`, geliştirmede `fuxa-runtime/node_modules/...`.
+- Electron'un kendi Node'u (`ELECTRON_RUN_AS_NODE`) kullanılmadı: FUXA'nın `sqlite3` gibi yerel modülleri Node ABI'siyle derli geliyor, Electron ABI'si için yeniden derlemek gerekirdi.
+- FUXA `--userDir <userData>/fuxa` ile, **boş bir portta** başlar. `_appdata/settings.js` her açılışta yazılır: varsayılanlar + `uiHost: '127.0.0.1'` (ağa açılmaz) + `hideEditorOnboarding`. Günlük: `<logs>/engine.log` (Yardım → Günlük dosyasını aç).
+- FUXA `<userData>/fuxa/fuxaw-boot.js` üzerinden çalışır: ana süreci (`FUXAW_PARENT_PID`) izler, o kapanınca (çökse bile) kendini kapatır. Normal çıkışta `will-quit` süreci ağacıyla kapatır.
+- Editör `WebContentsView` içinde `/editor`. Sadece gömülü FUXA adresleri bu görünümde açılır; dış bağlantılar sistem tarayıcısına, FUXA'nın açtığı pencereler (ör. runtime) ayrı pencereye.
+- Editörün kendi proje menüsü (☰ New/Save/Save As/Open/Rename, `button[title="Save Project"]`) CSS ile gizlidir; uygulamanın Dosya menüsüyle çakışır.
+- **Editör çizim değişikliklerini sunucuya kendiliğinden göndermez**, kendi "Save Project"ine veya ekran değişimine kadar tutar. Bu yüzden:
+  - Bekleyen düzenlemeler, svg-edit'in `undoMgr.addCommandToHistory`'sine bağlanan sayaçla (`window.__fxw.edits`) izlenir.
+  - Kaydet'ten önce gizli menüdeki "Save Project" programla tıklanır (`flushEditor`; menü katmanı o an `opacity: 0`).
+  - FUXA sürümü değişirse bu seçiciler (`button[title="Save Project"]`, `.mat-mdc-menu-item`, `svgEditor.canvas.undoMgr`) kontrol edilmeli.
+- Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
+- Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
 
 ## 5. FUXA REST API (1.3.4, kimlik doğrulama yok, `secureEnabled: false`)
 
 | İş                   | Çağrı                                                             |
 | -------------------- | ----------------------------------------------------------------- |
 | Tüm projeyi oku      | `GET /api/project`                                                |
+| Tüm projeyi yaz      | `POST /api/project` (body = proje; editörde *Open Project* ile aynı) |
 | Tag değerlerini oku  | `GET /api/getTagValue?ids=["t_...","t_..."]` (URL-encode)         |
 | Proje parçası kaydet | `POST /api/projectData`, body `{"cmd": "<komut>", "data": {...}}` |
-| Ayarlar              | `GET /api/settings`                                               |
+| Ayarlar (hazır mı)   | `GET /api/settings`                                               |
 
-`/api/projectData` komutları: `set-view` (tam view objesi), `set-device` (tam device objesi; **sürücüyü yeniden başlatır**, ADS bağlantısı ~1 sn kopar), `set-script`, `del-script`, `del-view`, `del-device`, `layout`. Ayrıca `set-/del-text`, `-alarm` (anahtar `name`), `-notification`, `-report`, `-maps-location`, `-ar-marker` ve tekil `charts`, `graphs`, `languages`, `client-access`. Silme komutları `data.id`'ye bakar. `set-view` **aynı adlı başka ekran varsa sessizce atlar** (hata dönmez). `name`, `version`, `server` ve `ar.enabled` bu API ile yazılamaz. Kayıt anında canlıya yansır; açık runtime sayfasının yenilenmesi gerekir. Kaynak: FUXA v1.3.4 `server/runtime/project/index.js` → `setProjectData`.
-
-Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazılanlar ezilir (fuxaw bunu bir sonraki `status`'ta `[pull]`/`[ÇAKIŞMA]` olarak görür).
+`/api/projectData` komutları: `set-view`, `set-device` (**sürücüyü yeniden başlatır**), `set-script`, `del-*`, `layout`, … `set-view` **aynı adlı başka ekran varsa sessizce atlar**. Kaynak: FUXA v1.3.4 `server/runtime/project/index.js` → `setProjectData`. FUXA komut satırı: `main.js --port N --userDir DİZİN`; `uiHost` sadece ayar dosyasından.
 
 ## 6. FUXA proje JSON yapısı (lint ve model için)
 
@@ -89,28 +108,30 @@ Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazı
   - Değer yaz: `onSetValue`, `actparam: "1"`, `actoptions: {"variable": {"variableId": "t_..."}}`
   - Script: `onRunScript`, `actparam: "<script id>"`, `actoptions: {"params": []}`
   - Momentary buton: `mousedown → "1"`, `mouseup → "0"`, `mouseout → "0"`.
+- Event `actoptions.variable.variableRaw`: FUXA tag'in o anki kopyasını (value/timestamp dahil) buraya yazar. Proje verisidir, temizlenmez; sadece event düzenlenince değişir.
 - Script objesi: `{"id","name","code","sync":false,"parameters":[],"mode":"SERVER"}`. Server script'te `$getTag(id)`, `await $setTag(id, v)`, `$getTagId('<tag adı>', '<cihaz adı>')`. Kullanıcı tercihi: script'lerde tag id değil **tag adı** (`$getTagId`) kullanılır; lint bu adların var olduğunu kontrol eder.
+- Editör bir cihaz eklenince FUXA Server cihazına `<cihaz> Connection Status` tag'i ekler.
 
 ## 7. Tuzaklar (lint kuralları bunlardan türetildi)
 
 1. **Boolean ADS tag'inde "Toggle value" kullanma** (FUXA 1.3.4 hatası): client `"false"` metnini gönderir, ADS sürücüsü `_toValue`'da `'boolean'` ile karşılaştırır ama tip `"Boolean"` olduğundan dönüşüm atlanır, `ads-client` `value ? 1 : 0` ile yazdığı için `"false"` TRUE olur. Aynı hata *Set value*'da `True`/`False` yazınca da var. Boolean ADS tag'ine yazılan değer **her zaman `1`/`0`** olmalı ya da server script gerçek boolean yazmalı.
 2. Switch (`html_switch`) `"0"`/`"1"` gönderdiği için sorunsuz.
 3. Olmayan tag'e bağlı öğe, olmayan script'e bağlı event, aynı adlı iki ekran (`set-view` atlar) → lint hatası.
+4. Editör bir ekranı açınca `svgcontent`'i yeniden yazar, öznitelik sırası değişir (`id x y` → `y x id`). Değişiklik takibi bunu `normalizeSvg` ile yok sayar; yoksa her açılışta "kaydedilmedi" görünür.
 
-Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.py`'ye kural, `mock_fuxa.py`'ye davranış ve teste örnek olarak ekle.
+Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.js`'ye kural ve `tests/core.test.js`'ye örnek ekle.
 
 ## 8. Bilinen ortam kısıtları
 
-- **Claude'un komutları sandbox'ta çalışır:** Bash/PowerShell araçlarıyla `%LOCALAPPDATA%` altına yazılan dosyalar (ör. `fuxaw\ui.json`) gerçek Windows oturumunda görünmeyebilir; oradan başlatılan süreçler de oturum/araç bitince kapanabilir. Kullanıcının uygulamasını etkileyen ayarları çalışan arayüzün API'si üzerinden yaz (ör. `POST /api/roots`); kalıcı çalışacak süreçleri `explorer.exe fuxaw.cmd` ile (çift tıklama gibi) başlat. 2026-10-02'de `ui.json` bu yüzden gerçek uygulamada görünmedi.
-
-- Claude'un FUXA kurulum dosyalarına (`node_modules\@frangoteam\fuxa\...`) yazması izin sisteminde engelli olabilir; yama gerekiyorsa satırı ve değişikliği kullanıcıya ver, kullanıcı yapsın, sonra okuyarak doğrula.
-- FUXA veriyi çalışma klasöründeki `_appdata`'ya yazar; başka klasörden başlatılırsa boş proje açılır (veri silinmez). `designer.py` bu yüzden FUXA'yı hep `data\` klasöründen başlatır.
+- **Claude'un komutları sandbox'ta çalışır:** araçla başlatılan süreçler araç bitince kapanabilir; uzun süre açık kalacak uygulamayı `run_in_background` ile başlat. Pencereyi görmek için computer-use'ta uygulama adı `electron.exe` (geliştirme) veya `fuxaw.exe` (paket).
+- Git Bash'teki `tar`, `C:\...` yolunu uzak sunucu sanar; `fetch-node.js` Windows'ta `System32\tar.exe` kullanır.
+- npm 11 bağımlılıkların kurulum betiklerini ("allow-scripts") çalıştırmıyor: Electron ikili dosyası bu yüzden `postinstall`'da `node node_modules/electron/install.js` ile iner. FUXA'nın `sqlite3`'ü hazır derlenmiş `node_sqlite3.node` ile geliyor, sorun yok.
+- Eski Python sürümünün `%LOCALAPPDATA%\fuxaw\fuxa` altına kurduğu FUXA (port 1881) bu uygulamayla ilgisiz; isteyen silebilir.
 
 ## 9. Yol haritası
 
-1. Çekirdek CLI ✅ (2026-10-02, sahte sunucuyla test edildi)
-2. Yerel designer ✅ (2026-10-02): `fuxaw designer` bileşenleri kurar, FUXA'yı başlatır, editörü açar.
-3. Web arayüzü 1. sürüm ✅ (2026-10-02): proje seçimi, durum/fark, pull/publish (plan + onay), export, tag tablosu (filtre, çoklu seçim, kullanım yerleri), lint, designer kontrolü. Tarayıcıda yerel FUXA'ya karşı denendi.
-   Sadece yerel publish + klasöre export modeline geçildi ✅ (2026-10-02; SSH silindi).
-4. Web arayüzü 2. sürüm: tag düzenleme (ekle/yeniden adlandır, adresi değiştir; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba), arayüzden yeni proje (`init`).
+1. Masaüstü uygulaması iskeleti ✅ (2026-10-02): pencere + menü, Yeni/Aç/Kaydet/Farklı Kaydet/Son Projeler, `.fxprj`, gömülü FUXA + editör, değişiklik takibi, Publish (klasöre), Taglar, Kontrol (lint), runtime önizleme, Windows paketi (`dist:dir`) denendi.
+2. Paket: uygulama simgesi, NSIS kurulum paketini dene, Linux/macOS'ta derle ve dene, paket boyutunu küçült (FUXA'nın kullanılmayan bağımlılıkları; şu an açık hali ~675 MB).
+3. Tag düzenleme (ekleme ✅ 2026-10-02; yeniden adlandır, adres değiştir, sil; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
+4. Çökme sonrası kurtarma (FUXA veri klasöründe kalan kaydedilmemiş hali önerme).
 5. TwinCAT değişken seçici (GVL'den), ek lint kuralları.
