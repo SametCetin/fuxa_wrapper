@@ -139,9 +139,9 @@ async function loadStatus() {
   }
   const st = S.status;
   $("target-dot").className = "dot " + (st.reachable ? "ok" : "err");
-  $("target").title = st.reachable ? "Hedefe ulaşıldı" : "Hedefe ulaşılamadı";
+  $("target").title = st.reachable ? "Yerel test FUXA'sına ulaşıldı" : "Yerel test FUXA'sına ulaşılamadı";
   $("synced").textContent = fmtTime(st.synced_at);
-  if (!st.reachable) showBanner(`Hedefe ulaşılamadı: ${st.error}` + (st.has_base ? " — sadece yerel değişiklikler gösteriliyor." : ""), "err");
+  if (!st.reachable) showBanner(`Yerel FUXA'ya ulaşılamadı: ${st.error}` + (st.has_base ? " — sadece yerel değişiklikler gösteriliyor. Designer sekmesinden başlatabilirsin." : ""), "err");
   else if ((st.counts["hedefte değişti"] || 0) + (st.counts["çakışma"] || 0))
     showBanner("Hedefte değişiklik var (FUXA editöründe kaydedilmiş olabilir). Publish'ten önce Pull yap.", "");
   else $("status-banner").hidden = true;
@@ -209,7 +209,7 @@ async function selectEntry(e) {
 
 // ---------------------------------------------------------------- pull / publish
 async function doPull(force = false) {
-  const btns = [$("btn-pull"), $("btn-publish")];
+  const btns = [$("btn-pull"), $("btn-publish"), $("btn-export")];
   busy(btns, true);
   try {
     const r = await api("pull", { path: S.path, force });
@@ -234,7 +234,7 @@ async function doPull(force = false) {
 }
 
 async function doPublish(force = false) {
-  const btns = [$("btn-pull"), $("btn-publish")];
+  const btns = [$("btn-pull"), $("btn-publish"), $("btn-export")];
   busy(btns, true);
   let plan;
   try {
@@ -270,12 +270,12 @@ async function doPublish(force = false) {
     toast("Gönderilecek değişiklik yok.");
     return;
   }
-  body.push(el("p", {}, el("strong", {}, `Hedef: ${p ? p.target : ""}`)),
+  body.push(el("p", {}, el("strong", {}, `Yerel test FUXA'sı: ${p ? p.target : ""}`)),
     el("ul", { class: "plan" }, plan.plan.map((x) => el("li", {}, el("code", {}, x.cmd), x.label, x.detail ? el("span", { class: "muted" }, ` (${x.detail})`) : null))));
   if (plan.skipped.length) body.push(el("p", { class: "muted" }, "Atlanacak (API ile yazılamaz): " + plan.skipped.join(", ")));
   if (plan.plan.some((x) => x.cmd === "set-device" || x.cmd === "del-device"))
     body.push(el("p", { class: "banner" }, "set-device ADS sürücüsünü yeniden başlatır, bağlantı ~1 sn kopar."));
-  body.push(el("p", { class: "muted" }, "Göndermeden önce hedefte yedek alınır. Açık bir FUXA editörü eski haliyle kaydederse bu değişiklikler ezilir."));
+  body.push(el("p", { class: "muted" }, "Göndermeden önce yerel FUXA'nın yedeği proje klasörüne (.fuxaw/backups) alınır. Açık bir editör eski haliyle kaydederse bu değişiklikler ezilir. Hedef makine için Export kullan."));
   const v = await modal("Publish", body, [{ label: "Vazgeç", value: "no", cls: "ghost" }, { label: `Gönder (${plan.plan.length})`, value: "go", cls: "primary" }]);
   if (v !== "go") return;
 
@@ -430,7 +430,6 @@ function renderDesigner() {
     a.style.pointerEvents = d.running ? "" : "none";
     a.style.opacity = d.running ? "" : ".5";
   }
-  $("d-load").disabled = !d.running || !S.path;
 }
 
 async function designerStart() {
@@ -471,23 +470,37 @@ async function designerStop() {
   await loadDesigner();
 }
 
-async function designerLoad() {
-  const p = current();
-  const v = await modal("Projeyi designer'a yükle", [
-    el("p", {}, `${p.name} projesinin src/ içeriği yerel FUXA'ya (${S.designer.url}) yüklenecek.`),
-    el("p", { class: "muted" }, "Yerel FUXA'daki mevcut proje değiştirilir; önce yedeği alınır. Projenin hedefine dokunulmaz."),
-  ], [{ label: "Vazgeç", value: "no", cls: "ghost" }, { label: "Yükle", value: "yes", cls: "primary" }]);
-  if (v !== "yes") return;
-  $("d-load").disabled = true;
+// ---------------------------------------------------------------- export (hedef makine için klasöre)
+async function doExport() {
+  const b = $("btn-export");
+  b.disabled = true;
+  let r;
   try {
-    const r = await api("load", { path: S.path });
-    logOut("designer'a yükle", r.log);
-    toast(`${r.done.length} öğe yüklendi. Editörü yenile.`);
+    r = await api("export", { path: S.path });
+    logOut("export", r.log);
   } catch (e) {
-    logOut("designer'a yükle: hata", [e.message]);
+    logOut("export: hata", [e.message]);
     toast(e.message, true);
+    return;
+  } finally {
+    b.disabled = false;
   }
-  renderDesigner();
+  const lint = (r.lint || []).map(([lvl, where, msg]) =>
+    el("li", {}, el("span", { class: "state " + (lvl === "HATA" ? "lvl-err" : "lvl-warn") }, lvl), " ", where, ": ", msg));
+  if (r.rc !== 0) {
+    await modal("Export yapılmadı", [el("p", {}, "Lint hataları var; düzeltip tekrar dene."), el("ul", {}, lint)],
+      [{ label: "Kapat", value: "no" }]);
+    return;
+  }
+  const body = [
+    el("p", {}, "Hedef makine için dosyalar yazıldı:"),
+    el("pre", {}, r.dir),
+    el("ul", {}, r.files.map((f) => el("li", {}, el("code", {}, f.split(/[\\/]/).pop())))),
+    el("p", { class: "muted" }, "Klasörü hedef makineye taşı; README.md nereye ve nasıl koyulacağını anlatıyor " +
+      "(FUXA editöründe ☰ → Open Project)."),
+  ];
+  if (lint.length) body.push(el("p", {}, el("strong", {}, "Lint uyarıları")), el("ul", {}, lint));
+  await modal("Export tamam", body, [{ label: "Tamam", value: "ok", cls: "primary" }]);
 }
 
 // ---------------------------------------------------------------- genel
@@ -527,7 +540,7 @@ function bind() {
   $("designer-chip").addEventListener("click", () => switchTab("designer"));
   $("d-start").addEventListener("click", designerStart);
   $("d-stop").addEventListener("click", designerStop);
-  $("d-load").addEventListener("click", designerLoad);
+  $("btn-export").addEventListener("click", doExport);
   $("console-toggle").addEventListener("click", () => $("console").classList.toggle("open"));
   $("root-form").addEventListener("submit", async (e) => {
     e.preventDefault();

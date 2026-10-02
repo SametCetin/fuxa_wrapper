@@ -1,9 +1,10 @@
-"""CLI ve web arayüzünün ortak işlemleri: durum, fark, pull, publish, tag tablosu, yerel FUXA'ya yükleme.
+"""CLI ve web arayüzünün ortak işlemleri: durum, fark, pull, publish (yerel test FUXA'sına), export (hedef makine için klasöre), tag tablosu.
 
 Her işlem ilerleme mesajlarını `log` ile verir (CLI ekrana basar, arayüz toplar) ve sonucu
 {"rc": çıkış kodu, ...} sözlüğü olarak döndürür. Çıkış kodları: 0 tamam, 1 hata, 2 durduruldu,
 3 gönderim yarıda kaldı / doğrulama tutmadı.
 """
+import datetime
 import difflib
 import json
 import os
@@ -253,37 +254,81 @@ def publish(prj, dry_run=False, force=False, no_lint=False, confirm=None, log=_n
     return res
 
 
-# ---------------------------------------------------------------- yerel FUXA'ya yükleme
-def load_into(prj, url, backup_dir, log=_nolog):
-    """Yerel src/'yi başka bir FUXA'ya (ör. yerel designer) olduğu gibi yükle.
+# ---------------------------------------------------------------- hedef makine için klasöre çıkarma
+def export(prj, out_dir=None, no_lint=False, log=_nolog):
+    """src/'den hedef makineye taşınacak klasörü üret: <out>/<ad>/<ad>.json + README.md.
 
-    Projenin hedefi ve senkron tabanı değişmez. O FUXA'da yerelde olmayan öğeler silinir;
-    önce onun yedeği backup_dir'e alınır.
+    Ağ üzerinden hiçbir yere gönderilmez. Varsayılan çıktı: <proje>/publish/.
     """
-    local = prj.read_items()
-    t = Target({"target": {"url": url}}, local_backup_dir=backup_dir, log=log)
-    with t:
-        tprj, raw = t.get_project()
-        entries = sync.compare(local, model.split_project(tprj), None)
-        plan, skipped, _blocked = sync.publish_plan(entries, force=True, raw_target=tprj)
-        if not plan:
-            log(f"{url} zaten yerel proje ile aynı.")
-            return {"rc": 0, "done": []}
-        log(f"Yedek: {t.backup('fuxaw_load', raw)}")
-        done = []
-        for cmd, e, data in plan:
-            try:
-                t.project_data(cmd, data)
-            except TargetError as ex:
-                log(f"!! {cmd} {e.label} başarısız: {ex}")
-                return {"rc": 3, "done": done}
-            done.append(e.label)
-            log(f"  ok  {cmd:<12} {e.label}")
-    for e in skipped:
-        if e.local is not None:
-            log(f"  [atlandı] {e.label}: FUXA API bu kısmı yazamıyor")
-    log(f"{len(done)} öğe {url} adresine yüklendi. Editörü yenile.")
-    return {"rc": 0, "done": done}
+    items = prj.read_items()
+    found = lintmod.lint(items)
+    errors = [f for f in found if f[0] == lintmod.ERROR]
+    if found:
+        log("Lint:")
+        print_lint(found, log)
+    if errors and not no_lint:
+        log("Lint hataları var, export yapılmadı (bilerek çıkarmak için --no-lint).")
+        return {"rc": 2, "lint": [list(f) for f in found], "dir": None, "files": []}
+
+    out = os.path.join(os.path.abspath(out_dir or os.path.join(prj.root, "publish")), store.safe_name(prj.name))
+    os.makedirs(out, exist_ok=True)
+    fname = f"{store.safe_name(prj.name)}.json"
+    prj_path = os.path.join(out, fname)
+    with open(prj_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(model.join_project(items), indent=2, ensure_ascii=False) + "\n")
+    readme = os.path.join(out, "README.md")
+    with open(readme, "w", encoding="utf-8", newline="\n") as f:
+        f.write(_export_readme(prj, items, fname, found))
+    log(f"Export: {out}")
+    log(f"  {fname}  (tam proje)")
+    log("  README.md  (hedef makinede nereye/nasıl koyulacağı)")
+    return {"rc": 0, "lint": [list(f) for f in found], "dir": out, "files": [prj_path, readme]}
+
+
+def _export_readme(prj, items, fname, found):
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    meta = items.get(model.META, {})
+    devs = [v for k, v in sorted(items.items()) if model.kind_of(k) == "device"]
+    views = sorted(v.get("name", "") for k, v in items.items() if model.kind_of(k) == "view")
+    scripts = sorted(v.get("name", "") for k, v in items.items() if model.kind_of(k) == "script")
+    warns = [f for f in found if f[0] != lintmod.ERROR]
+    lines = [
+        f"# {prj.name} – FUXA projesi (hedef makine için)",
+        "",
+        f"- Üretildi: {now} (`fuxaw export`)",
+        f"- Kaynak: `{prj.root}`",
+        f"- FUXA sürümü (projede kayıtlı): {meta.get('version', '?')}",
+        f"- Lint: {'temiz' if not found else f'{len(warns)} uyarı, hata yok'}",
+        "",
+        "## Dosyalar",
+        "",
+        f"- `{fname}`: tam proje (cihazlar, tag'ler, ekranlar, script'ler). FUXA editöründe *Open Project* ile açılır.",
+        "",
+        "## Hedef makinede nereye koyulur",
+        "",
+        "FUXA projeyi kendi veritabanında tutar; bu dosya FUXA'nın kurulum veya `_appdata` klasörüne **kopyalanmaz**,",
+        "editörden içeri alınır.",
+        "",
+        f"1. Bu klasörü hedef makineye kopyala, ör. `C:\\fuxa_publish\\{store.safe_name(prj.name)}\\`.",
+        "2. Hedef makinede FUXA editörünü aç: `http://127.0.0.1:1881/editor` (port farklıysa onu yaz).",
+        "3. **Önce mevcut projeyi yedekle:** sol üst ☰ menü → *Save Project As...* → inen JSON'u sakla.",
+        f"4. ☰ menü → *Open Project* (Türkçe arayüzde *Aç*) → `{fname}` dosyasını seç. Proje hemen FUXA sunucusuna kaydedilir.",
+        "5. Açık runtime sayfalarını (`/home`) yenile.",
+        "",
+        "Geri almak için 3. adımdaki yedeği aynı yolla (*Open Project*) aç.",
+        "",
+        "## Kontrol et",
+        "",
+        "Cihaz bağlantı ayarları dosyada nasılsa hedefe öyle gider; hedefteki PLC'ye uyduğunu kontrol et:",
+        "",
+        "| Cihaz | Tip | Tag sayısı |",
+        "| ----- | --- | ---------- |",
+    ]
+    lines += [f"| {d.get('name', '')} | {d.get('type', '')} | {len(d.get('tags') or {})} |" for d in devs]
+    lines += ["", f"Ekranlar: {', '.join(views) or '-'}", "", f"Script'ler: {', '.join(scripts) or '-'}", ""]
+    if warns:
+        lines += ["## Lint uyarıları", ""] + [f"- {w}: {m}" for _l, w, m in warns] + [""]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- tag tablosu

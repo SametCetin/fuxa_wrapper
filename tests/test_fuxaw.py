@@ -211,6 +211,39 @@ class TestFlow(Base):
         self.assertEqual(rc, 2)
         self.assertIn("aynı adlı", o)
 
+    def test_export_folder(self):
+        out = os.path.join(self.dir, "out")
+        rc, o = self.cli("export", "-o", out)
+        self.assertEqual(rc, 0, o)
+        with open(os.path.join(out, "p1", "p1.json"), encoding="utf-8") as f:
+            exported = json.load(f)
+        self.assertEqual({k: model.digest(v) for k, v in model.split_project(exported).items()},
+                         {k: model.digest(v) for k, v in model.split_project(LIVE).items()})
+        with open(os.path.join(out, "p1", "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertIn("Open Project", readme)
+        self.assertIn("tc3_ads", readme)
+        self.assertEqual(self.mock.calls, [])  # hedefe hiçbir şey gönderilmez
+
+    def test_export_blocked_by_lint(self):
+        self.edit_json(self.src("devices", "tc3_ads.json"),
+                       lambda d: d["tags"].pop("t_2c4f4e40-ccdc4848"))  # output_1 kırık referans
+        rc, o = self.cli("export", "-o", os.path.join(self.dir, "out"))
+        self.assertEqual(rc, 2, o)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "out")))
+
+    def test_remote_targets_rejected(self):
+        cfg = os.path.join(self.prj, "fuxaw.json")
+        for target in ({"ssh": "vm", "port": 1881}, {"url": "http://192.168.1.10:1881"}):
+            with open(cfg, "w", encoding="utf-8") as f:
+                json.dump({"name": "p1", "target": target}, f)
+            rc, o = self.cli("status")
+            self.assertEqual(rc, 1, o)
+            self.assertIn("fuxaw.json", o)
+        rc, o = run("init", os.path.join(self.dir, "p2"), "--url", "http://10.0.0.5:1881", "--no-pull")
+        self.assertEqual(rc, 1, o)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "p2")))
+
     def test_unreachable_target_status_offline(self):
         self.mock.close()
         with open(self.src("scripts", "SimuHmiToggle.js"), "a", encoding="utf-8") as f:

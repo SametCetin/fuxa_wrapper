@@ -8,8 +8,8 @@ JSON API (hepsi /api altında):
   GET  tags?path=                       tag tablosu + kullanım yerleri
   GET  lint?path=
   POST pull          {path, force}
-  POST publish       {path, dry_run, force}
-  POST load          {path}             projeyi yerel designer'a yükle
+  POST publish       {path, dry_run, force}   (sadece yerel test FUXA'sına)
+  POST export        {path}             hedef makine için klasöre çıkar (proje JSON + README)
   GET  designer                         yerel FUXA durumu
   POST designer/start {install, port}   POST designer/stop
 
@@ -93,9 +93,7 @@ class App:
                 except (OSError, ValueError) as ex:
                     out.append({"path": p, "name": os.path.basename(p), "error": str(ex)})
                     continue
-                t = prj.config.get("target") or {}
                 out.append({"path": p, "name": prj.name, "target": store.target_label(prj.config),
-                            "target_url": t.get("url"), "remote": bool(t.get("ssh")),
                             "synced_at": prj.read_state().get("synced_at")})
         return out
 
@@ -157,15 +155,12 @@ def api_publish(app, body):
     return {**res, "log": lines}
 
 
-def api_load(app, body):
+def api_export(app, body):
     prj = app.project(body.get("path"))
-    i = designer.info()
-    if not i["running"]:
-        raise designer.DesignerError("Yerel designer çalışmıyor; önce başlat.")
     lines, log = _collect()
     with app.lock:
-        res = ops.load_into(prj, i["url"], os.path.join(designer.app_dir(), "backups"), log=log)
-    return {**res, "log": lines, "url": i["url"]}
+        res = ops.export(prj, log=log)
+    return {**res, "log": lines}
 
 
 def api_designer_start(app, body):
@@ -203,7 +198,7 @@ def api_roots(app, body):
 GET = {"status": api_status, "diff": api_diff, "tags": api_tags, "lint": api_lint,
        "projects": lambda app, q: {"roots": app.roots, "projects": app.projects()},
        "designer": lambda app, q: designer.info()}
-POST = {"pull": api_pull, "publish": api_publish, "load": api_load, "roots": api_roots,
+POST = {"pull": api_pull, "publish": api_publish, "export": api_export, "roots": api_roots,
         "designer/start": api_designer_start, "designer/stop": api_designer_stop}
 ERRORS = (store.ProjectError, TargetError, designer.DesignerError, OSError, ValueError)
 

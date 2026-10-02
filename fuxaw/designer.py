@@ -13,6 +13,7 @@ nodejs.org'dan taşınabilir zip uygulama klasörüne açılır (yönetici izni 
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -21,7 +22,6 @@ import urllib.request
 import webbrowser
 import zipfile
 
-from .target import _port_open
 
 FUXA_PKG = "@frangoteam/fuxa"
 DEFAULT_FUXA_VERSION = "1.3.4"
@@ -31,6 +31,14 @@ NODE_DIST = "https://nodejs.org/dist"
 
 class DesignerError(Exception):
     pass
+
+
+def _port_open(host, port, timeout=0.5):
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def app_dir():

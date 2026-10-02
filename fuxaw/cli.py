@@ -1,12 +1,15 @@
 """fuxaw – FUXA proje wrapper'ı (komut satırı).
 
+Hedef = bu makinedeki test FUXA'sı (127.0.0.1). Hedef makineye ağdan gönderilmez: export ile klasöre çıkarılır.
+
   fuxaw status              yerel / hedef / son senkron karşılaştırması
   fuxaw diff [filtre]       değişen öğelerin JSON farkı
-  fuxaw pull                hedefteki değişiklikleri src/'ye al
-  fuxaw publish             yerel değişiklikleri hedefe gönder (yedek + doğrulama)
+  fuxaw pull                hedefteki (yerel FUXA editöründe kaydedilen) değişiklikleri src/'ye al
+  fuxaw publish             yerel değişiklikleri yerel test FUXA'sına gönder (yedek + doğrulama)
+  fuxaw export              hedef makine için klasöre çıkar (proje JSON + README)
   fuxaw lint                bilinen FUXA tuzaklarını kontrol et
   fuxaw build               src/'den import edilebilir proje JSON'unu üret
-  fuxaw backup              hedefte yedek al
+  fuxaw backup              yerel FUXA'daki projenin yedeğini al
   fuxaw init                yeni proje klasörü oluştur
   fuxaw designer            yerel FUXA editörü (eksik bileşenleri kurar, başlatır)
   fuxaw ui                  web arayüzü (proje durumu, pull/publish, tag tablosu, designer)
@@ -18,7 +21,7 @@ import sys
 
 from . import lint as lintmod
 from . import designer, model, ops, store, sync
-from .target import TargetError
+from .target import DEFAULT_URL, TargetError, target_url
 
 MARK = {sync.LOCAL: "[publish]", sync.TARGET: "[pull]   ", sync.CONFLICT: "[ÇAKIŞMA]", sync.UNKNOWN: "[farklı] "}
 
@@ -115,6 +118,10 @@ def cmd_publish(args):
                        no_lint=args.no_lint, confirm=confirm, log=out)["rc"]
 
 
+def cmd_export(args):
+    return ops.export(load_project(args), out_dir=args.out, no_lint=args.no_lint, log=out)["rc"]
+
+
 def cmd_build(args):
     prj = load_project(args)
     paths = prj.write_exports(prj.read_items())
@@ -131,14 +138,10 @@ def cmd_backup(args):
 
 
 def cmd_init(args):
+    target = {"url": args.url}
+    target_url({"target": target})  # yerel değilse hata
     root = os.path.abspath(args.dir)
     os.makedirs(root, exist_ok=True)
-    if args.url:
-        target = {"url": args.url}
-    else:
-        target = {"ssh": args.ssh, "port": args.port, "local_port": args.local_port}
-        if args.backup_dir:
-            target["backup_dir"] = args.backup_dir
     path = store.create_config(root, args.name or os.path.basename(root), target)
     out(f"oluşturuldu: {path}")
     if args.from_file:
@@ -188,7 +191,7 @@ def main(argv=None):
             s.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
-    ap = argparse.ArgumentParser(prog="fuxaw", description="FUXA proje wrapper'ı: yerel proje <-> hedef FUXA")
+    ap = argparse.ArgumentParser(prog="fuxaw", description="FUXA proje wrapper'ı: proje klasörü <-> yerel test FUXA'sı, hedef makine için export")
     ap.add_argument("-p", "--project", help="proje klasörü (fuxaw.json); verilmezse aranır")
     sp = ap.add_subparsers(dest="cmd", required=True)
 
@@ -206,29 +209,29 @@ def main(argv=None):
     p.add_argument("--force", action="store_true", help="çakışmada hedefteki hali al")
     p.set_defaults(fn=cmd_pull)
 
-    p = sp.add_parser("publish", help="yerel değişiklikleri hedefe gönder")
+    p = sp.add_parser("publish", help="yerel değişiklikleri yerel test FUXA'sına gönder")
     p.add_argument("-n", "--dry-run", action="store_true", help="sadece planı göster")
     p.add_argument("-y", "--yes", action="store_true", help="onay sorma")
     p.add_argument("--force", action="store_true", help="çakışmada yereldeki hali gönder")
     p.add_argument("--no-lint", action="store_true", help="lint hatalarına rağmen gönder")
     p.set_defaults(fn=cmd_publish)
 
+    p = sp.add_parser("export", help="hedef makine için klasöre çıkar (proje JSON + README)")
+    p.add_argument("-o", "--out", help="çıktı klasörü (varsayılan <proje>/publish)")
+    p.add_argument("--no-lint", action="store_true", help="lint hatalarına rağmen çıkar")
+    p.set_defaults(fn=cmd_export)
+
     sp.add_parser("lint", help="bilinen tuzakları kontrol et").set_defaults(fn=cmd_lint)
     sp.add_parser("build", help="src/'den export JSON'larını üret").set_defaults(fn=cmd_build)
 
-    p = sp.add_parser("backup", help="hedefte yedek al")
+    p = sp.add_parser("backup", help="yerel FUXA'daki projenin yedeğini al")
     p.add_argument("--topic", default="manual")
     p.set_defaults(fn=cmd_backup)
 
     p = sp.add_parser("init", help="yeni proje klasörü")
     p.add_argument("dir")
     p.add_argument("--name")
-    g = p.add_mutually_exclusive_group(required=True)
-    g.add_argument("--ssh", help="SSH alias (uzak makinedeki FUXA için)")
-    g.add_argument("--url", help="doğrudan FUXA adresi (ör. http://127.0.0.1:1881)")
-    p.add_argument("--port", type=int, default=1881)
-    p.add_argument("--local-port", type=int, default=11881)
-    p.add_argument("--backup-dir", help="hedef makinede yedek klasörü")
+    p.add_argument("--url", default=DEFAULT_URL, help=f"yerel FUXA adresi (varsayılan {DEFAULT_URL})")
     p.add_argument("--no-pull", action="store_true")
     p.add_argument("--from-file", help="pull yerine bu proje JSON'undan başla (hedef kapalıyken)")
     p.set_defaults(fn=cmd_init)

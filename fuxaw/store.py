@@ -16,6 +16,7 @@ import re
 import shutil
 
 from . import model
+from .target import TargetError, target_url
 
 CONFIG_NAME = "fuxaw.json"
 SRC = "src"
@@ -188,10 +189,10 @@ class Project:
 
 
 def target_label(config):
-    t = config.get("target", {})
-    if t.get("url"):
-        return t["url"]
-    return f"{t.get('ssh', '?')}:{t.get('port', 1881)}"
+    try:
+        return target_url(config)
+    except TargetError:
+        return "(geçersiz hedef)"
 
 
 def create_config(root, name, target):

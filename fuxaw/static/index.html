@@ -14,15 +14,16 @@
     <label for="project" class="sr">Proje</label>
     <select id="project"></select>
   </div>
-  <div class="target" id="target" title="Hedef FUXA">
+  <div class="target" id="target" title="Yerel test FUXA'sı">
     <span class="dot" id="target-dot"></span>
     <span id="target-label">—</span>
     <span class="muted" id="synced"></span>
   </div>
   <div class="actions">
     <button id="btn-refresh" class="ghost" title="Durumu yenile">Yenile</button>
-    <button id="btn-pull" title="Hedefteki değişiklikleri src/'ye al">Pull</button>
-    <button id="btn-publish" class="primary" title="Yerel değişiklikleri hedefe gönder">Publish</button>
+    <button id="btn-pull" title="Yerel FUXA editöründe kaydedilenleri src/'ye al">Pull</button>
+    <button id="btn-publish" title="src/'deki değişiklikleri yerel test FUXA'sına gönder">Publish (test)</button>
+    <button id="btn-export" class="primary" title="Hedef makine için klasöre çıkar (proje JSON + README)">Export</button>
   </div>
   <button class="designer-chip" id="designer-chip" title="Yerel designer">
     <span class="dot" id="designer-dot"></span><span id="designer-label">Designer</span>
@@ -93,11 +94,12 @@
         </div>
       </div>
       <div class="card">
-        <h3>Projeyi designer'a yükle</h3>
-        <p class="muted">Seçili projenin <code>src/</code> içeriğini yerel FUXA'ya olduğu gibi yükler. Yerel FUXA'daki proje
-          değiştirilir (önce yedeği alınır). Projenin hedefine ve senkron durumuna dokunulmaz.</p>
-        <p class="muted">Cihazlar da yüklenir; bu makinede PLC yoksa FUXA bağlantı hatası yazar, ekranlar yine açılır.</p>
-        <div class="row"><button id="d-load">Yükle</button></div>
+        <h3>Çalışma şekli</h3>
+        <p class="muted"><strong>Publish (test)</strong> sadece bu makinedeki FUXA'ya gönderir; ekranları burada dene, editörde
+          kaydettiklerini <strong>Pull</strong> ile projeye al.</p>
+        <p class="muted"><strong>Export</strong> hedef makine için <code>&lt;proje&gt;\publish\</code> klasörüne proje JSON'unu ve
+          nereye/nasıl koyulacağını anlatan bir README yazar. Klasörü hedef makineye elle taşı.</p>
+        <p class="muted">Cihazlar da yerel FUXA'ya gider; bu makinede PLC yoksa FUXA bağlantı hatası yazar, ekranlar yine açılır.</p>
       </div>
     </div>
   </section>

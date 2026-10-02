@@ -1,6 +1,8 @@
 # fuxaw – FUXA proje wrapper'ı
 
-FUXA editöründe zor olan işleri (tag listesi, kaydetme, "sunucuda mı projede mi" belirsizliği) proje bazlı, git'e uygun bir akışa çevirir. **Proje** = `fuxaw.json` içeren bir klasör (git'te). **Hedef** = çalışan FUXA (yerelde `fuxaw designer` ile kurulan, ya da uzak bir makinede). Hedefe sadece `publish` ile yazılır. Uzak hedefte SSH tünelini kendisi açıp kapatır.
+FUXA editöründe zor olan işleri (tag listesi, kaydetme, "sunucuda mı projede mi" belirsizliği) proje bazlı, git'e uygun bir akışa çevirir. **Proje** = `fuxaw.json` içeren bir klasör (git'te). **Hedef** = bu makinedeki test FUXA'sı (`fuxaw designer` ile kurulur, `127.0.0.1`). `publish` sadece ona yazar; test içindir.
+
+**Hedef makine** (gerçek HMI bilgisayarı) için ağdan hiçbir şey gönderilmez: `fuxaw export` proje dosyasını ve nereye/nasıl koyulacağını anlatan bir README'yi klasöre yazar, klasör elle taşınır.
 
 ## Hızlı başlangıç: web arayüzü
 
@@ -10,10 +12,10 @@ fuxaw ui --root C:\sct\syncthing\sc_genel\fuxa_projects
 
 Tarayıcıda `http://127.0.0.1:8765` açılır (sadece bu makineden erişilir, kapatmak için Ctrl+C). Sekmeler:
 
-- **Değişiklikler:** yerel / hedef karşılaştırması, öğeye tıklayınca fark (script kodu satır satır). Üst bardan Pull / Publish: önce plan ve lint gösterilir, onaylayınca gönderilir. Çakışmada ne yapılacağı sorulur.
+- **Değişiklikler:** yerel / hedef karşılaştırması, öğeye tıklayınca fark (script kodu satır satır). Üst bardan Pull / Publish (test): önce plan ve lint gösterilir, onaylayınca yerel FUXA'ya gönderilir. Çakışmada ne yapılacağı sorulur. **Export:** hedef makine için klasöre çıkarır.
 - **Taglar:** tüm tag'ler; arama, cihaz/tip filtresi, "kullanılmayanlar". Kullanım sayısına tıklayınca tag'in hangi ekran öğesinde, hangi event'te ya da script'te kullanıldığı görünür. Seçilenler Excel'e yapıştırılabilir şekilde kopyalanır.
 - **Lint:** bilinen FUXA tuzakları ve kırık referanslar.
-- **Designer:** yerel FUXA'yı kur/başlat/durdur, editörü aç, seçili projeyi yerel FUXA'ya yükle (projenin hedefine dokunmaz).
+- **Designer:** yerel FUXA'yı kur/başlat/durdur, editörü aç.
 - **Projeler:** proje arama kökleri (eklenen kökler `%LOCALAPPDATA%\fuxaw\ui.json`'da saklanır).
 
 `--root` verilmezse bulunulan klasör (proje klasöründeysen onun üstü) aranır. `--port`, `--no-browser` da var.
@@ -58,15 +60,16 @@ fuxa_wrapper/
 Proje klasöründe veya onun bir üstünde (proje reposunun kökü) çalıştırılır; birden fazla proje varsa `-p <klasör>`:
 
 ```
-fuxaw status          yerel / hedef karşılaştırması ([publish] [pull] [ÇAKIŞMA]); -a: aynıları da göster
+fuxaw status          yerel / yerel FUXA karşılaştırması ([publish] [pull] [ÇAKIŞMA]); -a: aynıları da göster
 fuxaw diff [MainView] değişen öğelerin JSON farkı (--base: hedefe bağlanmadan, son senkrona göre)
-fuxaw pull            hedefteki değişiklikleri (ör. editörde kaydedilenleri) src/'ye al
+fuxaw pull            yerel FUXA editöründe kaydedilenleri src/'ye al
 fuxaw lint            bilinen FUXA tuzakları + kırık tag/script referansları
 fuxaw publish -n      ne gönderileceğini göster (dry-run)
 fuxaw publish         yedek al → sadece değişenleri gönder → tekrar okuyup doğrula
 fuxaw build           src/'den <ad>_live.json üret (editörde Import project için)
-fuxaw backup          hedefte elle yedek al
-fuxaw init <klasör> --url http://127.0.0.1:1881    yeni proje (--ssh <alias> --backup-dir, --from-file, --no-pull)
+fuxaw backup          yerel FUXA'daki projenin yedeğini al (.fuxaw/backups)
+fuxaw export          hedef makine için klasöre çıkar: <proje>/publish/<ad>/ (proje JSON + README); -o ile başka klasör
+fuxaw init <klasör>   yeni proje (--url yerel FUXA, varsayılan http://127.0.0.1:1881; --from-file, --no-pull)
 fuxaw designer        yerel FUXA editörü (proje gerektirmez, bkz. Hızlı başlangıç)
 fuxaw ui              web arayüzü (bkz. Hızlı başlangıç)
 ```
@@ -95,11 +98,18 @@ Kısa yol için bu klasörü `PATH`'e ekle, sonra her yerden `fuxaw status`.
 └─ <ad>-devices_live.json    ← üretilen cihaz listesi (editör "devices export" formatı)
 ```
 
-Uzak makinedeki bir FUXA için `target.url` yerine `{"ssh": "<alias>", "port": 1881, "local_port": 11881, "backup_dir": "..."}` verilir (SSH tüneli, yedek hedef makinede).
+`target` sadece yerel adres olabilir (`127.0.0.1` / `localhost`); verilmezse `http://127.0.0.1:1881`. Uzak adres veya `ssh` alanı hata verir.
+
+`fuxaw export` çıktısı (`<proje>/publish/<ad>/`):
+
+```
+<ad>.json     tam proje; hedef makinede FUXA editörü ☰ → Open Project ile açılır
+README.md     hedef makinede nereye/nasıl koyulacağı, önce yedek alma, cihaz/tag özeti
+```
 
 ## Nasıl karar veriyor
 
-Her öğe üç halde karşılaştırılır: **yerel** (`src/`), **hedef** (canlı FUXA), **taban** (son pull/publish, `.fuxaw/base.json`).
+Her öğe üç halde karşılaştırılır: **yerel** (`src/`), **hedef** (yerel test FUXA'sı), **taban** (son pull/publish, `.fuxaw/base.json`).
 
 - Sadece yerelde değişen → `[publish]`
 - Sadece hedefte değişen (editörde kaydedilmiş) → `[pull]`; publish bunlara dokunmaz.
@@ -118,4 +128,5 @@ python -m unittest discover -s tests -v
 - **2026-10-02:** 1. aşama (çekirdek CLI) `fuxa_projects/wrapper/` altında yazıldı; sahte sunucuyla 11 test geçti. Aynı gün bu repoya taşındı: testler artık `tests/fixtures/fuxa1_live.json` kullanıyor, `fuxaw.cmd` bu klasörde.
 - **2026-10-02:** `fuxaw designer`: Node.js (winget) + FUXA 1.3.4 (npm) bu makinede kuruldu, yerel FUXA çalıştı, editör açıldı.
 - **2026-10-02:** Web arayüzü ilk sürüm (`fuxaw ui`): durum/fark, pull/publish, tag tablosu, lint, designer kontrolü, projeyi designer'a yükleme. Publish planında ekran silmeleri artık ekran kayıtlarından önce (aynı adlı ekran yeniden oluşturulunca FUXA yenisini atlıyordu).
+- **2026-10-02:** Kullanıcı kararıyla model sadeleşti: publish sadece yerel test FUXA'sına; SSH/tünel desteği silindi; hedef makine için `fuxaw export` (klasör + README). Designer'a yükleme kalktı (publish zaten yerel FUXA'ya gidiyor).
 - Sonraki aşamalar: AGENTS.md §9.
