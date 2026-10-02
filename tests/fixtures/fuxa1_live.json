@@ -1,0 +1,629 @@
+{
+  "devices": {
+    "0": {
+      "id": "0",
+      "name": "FUXA Server",
+      "type": "FuxaServer",
+      "property": {
+        "port": null,
+        "slot": null,
+        "rack": null,
+        "baudrate": 9600,
+        "databits": 8,
+        "stopbits": 1,
+        "parity": "None",
+        "forceFC16": false
+      },
+      "polling": 100,
+      "enabled": true,
+      "tags": {
+        "t_02803e52-258a4fdb": {
+          "id": "t_02803e52-258a4fdb",
+          "name": "tc3_ads Connection Status",
+          "label": "tc3_ads Connection Status",
+          "type": "number",
+          "memaddress": "d_31db3b81-3ebe4777",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "init": "",
+          "sysType": 1
+        }
+      }
+    },
+    "d_31db3b81-3ebe4777": {
+      "id": "d_31db3b81-3ebe4777",
+      "name": "tc3_ads",
+      "enabled": true,
+      "property": {
+        "address": "127.0.0.1.1.1:851",
+        "port": null,
+        "slot": null,
+        "rack": null,
+        "baudrate": 9600,
+        "databits": 8,
+        "stopbits": 1,
+        "parity": "None",
+        "delay": 10,
+        "forceFC16": false
+      },
+      "type": "ADSclient",
+      "polling": 100,
+      "tags": {
+        "t_4a4cf82b-46554bc1": {
+          "id": "t_4a4cf82b-46554bc1",
+          "name": ".OpPanelEStopBtn.IN_Simu",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelEStopBtn.IN_Simu",
+          "daq": {
+            "enabled": false,
+            "restored": false
+          },
+          "description": null,
+          "format": null,
+          "scale": null,
+          "scaleReadFunction": null,
+          "scaleWriteFunction": null,
+          "unsPath": null
+        },
+        "t_229c5968-ab464eb1": {
+          "id": "t_229c5968-ab464eb1",
+          "name": "SimuMachine",
+          "type": "Boolean",
+          "address": ".SimuMachine",
+          "daq": {
+            "enabled": false,
+            "restored": false
+          },
+          "description": null,
+          "format": null,
+          "scale": null,
+          "scaleReadFunction": null,
+          "scaleWriteFunction": null,
+          "unsPath": null
+        },
+        "t_2c4f4e40-ccdc4848": {
+          "id": "t_2c4f4e40-ccdc4848",
+          "name": "AxisX_ActPos",
+          "type": "Number",
+          "address": ".AxisX.Ref.NcToPlc.ActPos",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_6e1f0a7c-5b2d4e91": {
+          "id": "t_6e1f0a7c-5b2d4e91",
+          "name": ".OpPanelEStopBtn.Q",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelEStopBtn.Q",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null,
+          "format": null,
+          "scale": null,
+          "scaleReadFunction": null,
+          "scaleWriteFunction": null,
+          "unsPath": null
+        },
+        "t_122febcd-14034e15": {
+          "id": "t_122febcd-14034e15",
+          "name": "SimuHmi",
+          "type": "Boolean",
+          "address": ".SimuHmi",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_c988bee1-092c43e5": {
+          "id": "t_c988bee1-092c43e5",
+          "name": "ResetLamp",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelResetBtn.Q",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_2212d356-537f4703": {
+          "id": "t_2212d356-537f4703",
+          "name": "Reset_Btn",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelResetBtn.IN_Simu",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_1469980e-eaaa4c3b": {
+          "id": "t_1469980e-eaaa4c3b",
+          "name": "ResetButton_lamp",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelResetBtnLamp.Q",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_2a047ffc-762a4192": {
+          "id": "t_2a047ffc-762a4192",
+          "name": "StartButton_lamp",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelStartBtnLamp.Q",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        },
+        "t_e7db6a54-3831424d": {
+          "id": "t_e7db6a54-3831424d",
+          "name": "Start_button",
+          "type": "Boolean",
+          "address": "GENERAL.OpPanelStartBtn.IN_Simu",
+          "daq": {
+            "enabled": false,
+            "interval": 60,
+            "changed": false,
+            "restored": false
+          },
+          "description": null
+        }
+      }
+    }
+  },
+  "hmi": {
+    "views": [
+      {
+        "id": "v_147143a11-5510",
+        "name": "MainView",
+        "profile": {
+          "width": 1024,
+          "height": 768,
+          "bkcolor": "#ffffffff",
+          "margin": 10,
+          "align": "topCenter",
+          "gridType": "fixed",
+          "viewRenderDelay": 0
+        },
+        "items": {
+          "HXB_a64948d6-1cab4f77": {
+            "id": "HXB_a64948d6-1cab4f77",
+            "type": "svg-ext-html_button",
+            "name": "OpPanel E-Stop",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#696969",
+                  "type": 2,
+                  "stroke": "#ffffff"
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#ff0000",
+                  "type": 2,
+                  "stroke": "#ffffff"
+                }
+              ],
+              "events": [
+                {
+                  "type": "click",
+                  "action": "onRunScript",
+                  "actparam": "s_opstop_toggle",
+                  "actoptions": {
+                    "params": []
+                  }
+                }
+              ],
+              "actions": [],
+              "text": "",
+              "variableId": "t_6e1f0a7c-5b2d4e91"
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "HXB_66cab806-392946be": {
+            "id": "HXB_66cab806-392946be",
+            "type": "svg-ext-html_button",
+            "name": "SimuMachine",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#cccccc",
+                  "type": 2,
+                  "stroke": "#000000"
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#0CC868",
+                  "type": 2,
+                  "stroke": "#ffffff"
+                }
+              ],
+              "events": [
+                {
+                  "type": "click",
+                  "action": "onRunScript",
+                  "actparam": "s_simumachine_toggle",
+                  "actoptions": {
+                    "params": []
+                  }
+                }
+              ],
+              "actions": [],
+              "variableId": "t_229c5968-ab464eb1",
+              "variableValue": "1",
+              "permission": 0
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "VAL_08b65825-7fc142b3": {
+            "id": "VAL_08b65825-7fc142b3",
+            "type": "svg-ext-value",
+            "name": "output_1",
+            "property": {
+              "variableId": "t_2c4f4e40-ccdc4848",
+              "ranges": [
+                {
+                  "min": 20,
+                  "max": 80,
+                  "textId": null,
+                  "color": "",
+                  "type": 1,
+                  "stroke": "",
+                  "fractionDigitsId": null,
+                  "fractionDigits": 2
+                }
+              ],
+              "events": [],
+              "actions": []
+            },
+            "label": "Value",
+            "hide": false,
+            "lock": false
+          },
+          "HXB_c530a66f-635e40d7": {
+            "id": "HXB_c530a66f-635e40d7",
+            "type": "svg-ext-html_button",
+            "name": "SimuHmi_button",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#cccccc",
+                  "type": 2,
+                  "stroke": "#000000"
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#0CC868",
+                  "type": 2,
+                  "stroke": "#ffffff"
+                }
+              ],
+              "events": [
+                {
+                  "type": "click",
+                  "action": "onRunScript",
+                  "actparam": "s_0b26152a-452043eb",
+                  "actoptions": {
+                    "params": []
+                  }
+                }
+              ],
+              "actions": [],
+              "variableId": "t_122febcd-14034e15",
+              "variableValue": "1",
+              "permission": 0,
+              "text": "Simu Hmi"
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "svg_ec89c46d-a661491a": {
+            "id": "svg_ec89c46d-a661491a",
+            "type": "svg-ext-shapes-rect",
+            "name": "shape_1",
+            "property": null,
+            "label": "Shapes",
+            "hide": false,
+            "lock": false
+          },
+          "HXB_4c8fa5e6-d4414d97": {
+            "id": "HXB_4c8fa5e6-d4414d97",
+            "type": "svg-ext-html_button",
+            "name": "Reset_button",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#7f7f7fff",
+                  "type": 2,
+                  "stroke": ""
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#3358c0ff",
+                  "type": 2,
+                  "stroke": ""
+                }
+              ],
+              "events": [],
+              "actions": [],
+              "text": "RESET",
+              "variableId": "t_1469980e-eaaa4c3b"
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "HXB_3c3de5da-81554adb": {
+            "id": "HXB_3c3de5da-81554adb",
+            "type": "svg-ext-html_button",
+            "name": "Start_button",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#7f7f7fff",
+                  "type": 2,
+                  "stroke": "#ffffffff"
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#00b050ff",
+                  "type": 2,
+                  "stroke": "#ffffffff"
+                }
+              ],
+              "events": [
+                {
+                  "type": "mousedown",
+                  "action": "onSetValue",
+                  "actparam": "1",
+                  "actoptions": {
+                    "function": "set",
+                    "variable": {
+                      "variableId": "t_e7db6a54-3831424d",
+                      "variableRaw": {
+                        "id": "t_e7db6a54-3831424d",
+                        "name": "Start_button",
+                        "value": false,
+                        "type": "Boolean",
+                        "address": "GENERAL.OpPanelStartBtn.IN_Simu",
+                        "daq": {
+                          "enabled": false,
+                          "interval": 60,
+                          "changed": false,
+                          "restored": false
+                        },
+                        "description": null,
+                        "timestamp": 1790863163291
+                      },
+                      "bitmask": null
+                    }
+                  }
+                },
+                {
+                  "type": "mouseup",
+                  "action": "onSetValue",
+                  "actparam": "0",
+                  "actoptions": {
+                    "function": "set",
+                    "variable": {
+                      "variableId": "t_e7db6a54-3831424d",
+                      "variableRaw": {
+                        "id": "t_e7db6a54-3831424d",
+                        "name": "Start_button",
+                        "value": false,
+                        "type": "Boolean",
+                        "address": "GENERAL.OpPanelStartBtn.IN_Simu",
+                        "daq": {
+                          "enabled": false,
+                          "interval": 60,
+                          "changed": false,
+                          "restored": false
+                        },
+                        "description": null,
+                        "timestamp": 1790863163291
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "mouseout",
+                  "action": "onSetValue",
+                  "actparam": "0",
+                  "actoptions": {
+                    "function": "set",
+                    "variable": {
+                      "variableId": "t_e7db6a54-3831424d",
+                      "variableRaw": {
+                        "id": "t_e7db6a54-3831424d",
+                        "name": "Start_button",
+                        "value": false,
+                        "type": "Boolean",
+                        "address": "GENERAL.OpPanelStartBtn.IN_Simu",
+                        "daq": {
+                          "enabled": false,
+                          "interval": 60,
+                          "changed": false,
+                          "restored": false
+                        },
+                        "description": null,
+                        "timestamp": 1790863163291
+                      }
+                    }
+                  }
+                }
+              ],
+              "actions": [],
+              "text": "START",
+              "variableId": "t_2a047ffc-762a4192"
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "svg_aa4cee8d-ddf54879": {
+            "id": "svg_aa4cee8d-ddf54879",
+            "type": "svg-ext-shapes-rect",
+            "name": "shape_2",
+            "property": null,
+            "label": "Shapes",
+            "hide": false,
+            "lock": false
+          },
+          "HXB_dc9b37ab-6e0042c9": {
+            "id": "HXB_dc9b37ab-6e0042c9",
+            "type": "svg-ext-html_button",
+            "name": "Stop_button",
+            "property": {
+              "ranges": [
+                {
+                  "min": 0,
+                  "max": 0,
+                  "color": "#7f7f7fff",
+                  "type": 2,
+                  "stroke": ""
+                },
+                {
+                  "min": 1,
+                  "max": 1,
+                  "color": "#ff0000ff",
+                  "type": 2,
+                  "stroke": ""
+                }
+              ],
+              "events": [],
+              "actions": [],
+              "text": "STOP"
+            },
+            "label": "HtmlButton",
+            "hide": false,
+            "lock": false
+          },
+          "svg_0154c606-13b2455e": {
+            "id": "svg_0154c606-13b2455e",
+            "type": "svg-ext-shapes-rect",
+            "name": "shape_3",
+            "property": null,
+            "label": "Shapes",
+            "hide": false,
+            "lock": false
+          }
+        },
+        "variables": {},
+        "svgcontent": "<svg width=\"1024\" height=\"768\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:svg=\"http://www.w3.org/2000/svg\" xmlns:html=\"http://www.w3.org/1999/xhtml\">\n <filter id=\"blur-filter\" x=\"-3\" y=\"-3\" width=\"200\" height=\"200\">\n  <feGaussianBlur stdDeviation=\"3\"/>\n </filter>\n <g>\n  <title>Layer 1</title>\n  <g fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\" id=\"HXB_a64948d6-1cab4f77\" stroke=\"rgba(0,0,0,0)\">\n   <rect id=\"svg_81580e7b-f3244d43\" height=\"71\" width=\"138\" y=\"100\" x=\"15\" stroke-width=\"0\" stroke=\"null\"/>\n   <foreignObject id=\"H-HXB_0cd60adb-68044c31\" width=\"138\" height=\"71\" y=\"100\" x=\"15\">\n    <BUTTON style=\"width: calc(100% - 6px); height: calc(100% - 6px); text-align: center; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0); font-size: 14px; font-family: sans-serif; vector-effect: non-scaling-stroke;\" class=\"md-btn  md-btn-raised\" id=\"B-HXB_0cd60adb-68044c31\">OpPanel E-Stop</BUTTON>\n   </foreignObject>\n  </g>\n  <g stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\" id=\"HXB_66cab806-392946be\">\n   <rect stroke=\"null\" id=\"svg_8cad3dfc-5d58418d\" height=\"32\" width=\"138\" y=\"20\" x=\"15\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXB_eac35d0e-debc4356\" width=\"138\" height=\"32\" y=\"20\" x=\"15\">\n    <BUTTON style=\"width: calc(100% - 6px); height: calc(100% - 6px); text-align: center; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0); font-size: 14px; font-family: sans-serif; vector-effect: non-scaling-stroke;\" class=\"md-btn  md-btn-raised\" id=\"B-HXB_eac35d0e-debc4356\">SimuMachine</BUTTON>\n   </foreignObject>\n  </g>\n  <g data-name=\"output_1\" text-anchor=\"middle\" font-family=\"sans-serif\" stroke-width=\"0\" font-size=\"14\" fill=\"#000000\" type=\"svg-ext-value\" id=\"VAL_08b65825-7fc142b3\" stroke=\"#000000\">\n   <text transform=\"matrix(3.51428604490847,0,0,3.5853657022088585,-595.4510319912251,-1024.6097006092843) \" y=\"308.9932\" x=\"263.5691\" xml:space=\"preserve\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"14\" fill=\"#000000\" id=\"VAL_718fab48-34364489\" stroke-width=\"0\" stroke=\"#000000\">##.##</text>\n  </g>\n  <g id=\"HXB_c530a66f-635e40d7\" stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\">\n   <rect data-name=\"shape_1\" id=\"svg_ec89c46d-a661491a\" stroke=\"null\" height=\"32\" width=\"138\" y=\"50\" x=\"15\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXB_9e17a7af-f798431b\" width=\"138\" height=\"32\" y=\"50\" x=\"15\">\n    <BUTTON id=\"B-HXB_21997c08-c5ce43e2\" style=\"width: calc(100% - 6px); height: calc(100% - 6px); text-align: center; background-color: rgb(255, 255, 255); color: rgb(0, 0, 0); font-size: 14px; font-family: sans-serif; vector-effect: non-scaling-stroke;\" class=\"md-btn  md-btn-raised\">Simu Hmi</BUTTON>\n   </foreignObject>\n  </g>\n  <g stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\" id=\"HXB_4c8fa5e6-d4414d97\">\n   <rect id=\"svg_9203bd49-77d24429\" height=\"40\" width=\"70\" y=\"185\" x=\"45\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXB_7640d80f-0d0f4bcc\" width=\"70\" height=\"40\" y=\"185\" x=\"45\">\n    <BUTTON style=\"width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;font-size:14px;font-family:sans-serif;\" class=\"md-btn  md-btn-raised\" id=\"B-HXB_7640d80f-0d0f4bcc\">RESET</BUTTON>\n   </foreignObject>\n  </g>\n  <g id=\"HXB_3c3de5da-81554adb\" stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\">\n   <rect data-name=\"shape_2\" id=\"svg_aa4cee8d-ddf54879\" height=\"40\" width=\"70\" y=\"230\" x=\"45\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXB_5d2fb7a0-8046474b\" width=\"70\" height=\"40\" y=\"230\" x=\"45\">\n    <BUTTON id=\"B-HXB_ad44a2ec-6ba84108\" style=\"width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;font-size:14px;font-family:sans-serif;\" class=\"md-btn  md-btn-raised\">START</BUTTON>\n   </foreignObject>\n  </g>\n  <g id=\"HXB_dc9b37ab-6e0042c9\" stroke=\"rgba(0,0,0,0)\" fill=\"rgba(0,0,0,0)\" type=\"svg-ext-html_button\">\n   <rect data-name=\"shape_3\" id=\"svg_0154c606-13b2455e\" height=\"40\" width=\"70\" y=\"275\" x=\"45\" stroke-width=\"0\"/>\n   <foreignObject id=\"H-HXB_6b9287dc-d80e47a4\" width=\"70\" height=\"40\" y=\"275\" x=\"45\">\n    <BUTTON id=\"B-HXB_461236b8-64ca48cc\" style=\"width:calc(100% - 6px);height:calc(100% - 6px);text-align:center;background-color:#FFFFFF;color:#000000;font-size:14px;font-family:sans-serif;\" class=\"md-btn  md-btn-raised\">STOP</BUTTON>\n   </foreignObject>\n  </g>\n </g>\n</svg>",
+        "type": "svg"
+      }
+    ],
+    "layout": {
+      "autoresize": false,
+      "start": "v_147143a11-5510",
+      "navigation": {
+        "mode": "over",
+        "type": "block",
+        "bkcolor": "#F4F5F7",
+        "fgcolor": "#1D1D1D",
+        "logo": false
+      },
+      "header": {
+        "bkcolor": "#ffffff",
+        "fgcolor": "#000000",
+        "height": 46,
+        "buttonHeight": 36,
+        "fontSize": 13,
+        "itemsAnchor": "left"
+      },
+      "showdev": true,
+      "inputdialog": "false",
+      "hidenavigation": false,
+      "theme": "",
+      "loginonstart": false,
+      "loginoverlaycolor": "none",
+      "show_connection_error": true,
+      "customStyles": ""
+    }
+  },
+  "scripts": [
+    {
+      "id": "s_opstop_toggle",
+      "name": "OpPanelStopToggle",
+      "sync": false,
+      "parameters": [],
+      "mode": "SERVER",
+      "code": "// Boolean tag toggle. Tag'i FUXA'daki ADI ile bul (ADS adresi degil).\n// Not: 'Toggle value' aksiyonu FUXA 1.3.4 + ADS'de TRUE->FALSE yazamiyor, bu yuzden script.\nconst id = $getTagId('.OpPanelEStopBtn.IN_Simu', 'tc3_ads');\nconst v = $getTag(id);\nawait $setTag(id, !(v === true || v === 1 || v === '1' || v === 'true'));\n"
+    },
+    {
+      "id": "s_0b26152a-452043eb",
+      "name": "SimuHmiToggle",
+      "sync": false,
+      "parameters": [],
+      "mode": "SERVER",
+      "code": "// Boolean tag toggle. Tag'i FUXA'daki ADI ile bul (ADS adresi degil).\n// Not: 'Toggle value' aksiyonu FUXA 1.3.4 + ADS'de TRUE->FALSE yazamiyor, bu yuzden script.\nconst id = $getTagId('SimuHmi', 'tc3_ads');\nconst v = $getTag(id);\nawait $setTag(id, !(v === true || v === 1 || v === '1' || v === 'true'));\n"
+    },
+    {
+      "id": "s_simumachine_toggle",
+      "name": "SimuMachineToggle",
+      "sync": false,
+      "parameters": [],
+      "mode": "SERVER",
+      "code": "// Boolean tag toggle. Tag'i FUXA'daki ADI ile bul (ADS adresi degil).\n// Not: 'Toggle value' aksiyonu FUXA 1.3.4 + ADS'de TRUE->FALSE yazamiyor, bu yuzden script.\nconst id = $getTagId('SimuMachine', 'tc3_ads');\nconst v = $getTag(id);\nawait $setTag(id, !(v === true || v === 1 || v === '1' || v === 'true'));\n"
+    }
+  ],
+  "version": "1.00",
+  "name": "fuxa1",
+  "server": {
+    "id": "0",
+    "name": "FUXA Server",
+    "type": "FuxaServer",
+    "property": {},
+    "polling": 1000
+  },
+  "ar": {
+    "enabled": false,
+    "markers": []
+  }
+}
