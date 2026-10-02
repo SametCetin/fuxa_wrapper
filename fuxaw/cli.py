@@ -2,6 +2,9 @@
 
 Hedef = bu makinedeki test FUXA'sı (127.0.0.1). Hedef makineye ağdan gönderilmez: export ile klasöre çıkarılır.
 
+  fuxaw                     (komutsuz / fuxaw.cmd'ye çift tıklama) = fuxaw app:
+                            Node.js ve FUXA'yı kontrol et, gerekirse kur, yerel FUXA'yı başlat, arayüzü aç
+
   fuxaw status              yerel / hedef / son senkron karşılaştırması
   fuxaw diff [filtre]       değişen öğelerin JSON farkı
   fuxaw pull                hedefteki (yerel FUXA editöründe kaydedilen) değişiklikleri src/'ye al
@@ -18,6 +21,7 @@ import argparse
 import json
 import os
 import sys
+import webbrowser
 
 from . import lint as lintmod
 from . import designer, model, ops, store, sync
@@ -173,16 +177,36 @@ def cmd_designer(args):
     return 0
 
 
+def _ui_roots(args):
+    """--root, yoksa bulunulan proje reposu. Proje yoksa boş: arayüz kayıtlı kökleri kullanır
+    (çift tıklamada çalışma klasörü wrapper klasörü veya system32 olabilir)."""
+    from . import web
+    if args.root:
+        return args.root
+    try:
+        # Proje klasöründeysek onun üstü (proje reposu)
+        return [os.path.dirname(store.find_project(explicit=args.project))]
+    except store.ProjectError:
+        return [os.getcwd()] if web.scan(os.getcwd()) else []
+
+
 def cmd_ui(args):
     from . import web
-    roots = args.root or []
-    if not roots:
-        try:
-            # Proje klasöründeysek onun üstü (proje reposu), değilsek bulunduğumuz klasör
-            roots = [os.path.dirname(store.find_project(explicit=args.project))]
-        except store.ProjectError:
-            roots = [os.getcwd()]
-    return web.serve(roots, port=args.port, open_browser=not args.no_browser, log=out)
+    return web.serve(_ui_roots(args), port=args.port, open_browser=not args.no_browser, log=out)
+
+
+def cmd_app(args):
+    """Uygulama girişi: bileşen kontrolü/kurulumu → yerel FUXA → arayüz."""
+    from . import web
+    out("fuxaw – bileşenler kontrol ediliyor (eksikse kurulur)...")
+    designer.start(port=args.fuxa_port, assume_yes=True, open_browser=False, log=out)
+    if web.running(args.port):
+        url = f"http://127.0.0.1:{args.port}/"
+        out(f"Arayüz zaten çalışıyor: {url}")
+        if not args.no_browser:
+            webbrowser.open(url)
+        return 0
+    return web.serve(_ui_roots(args), port=args.port, open_browser=not args.no_browser, log=out)
 
 
 def main(argv=None):
@@ -250,6 +274,16 @@ def main(argv=None):
     p.add_argument("--no-browser", action="store_true", help="tarayıcıyı açma")
     p.set_defaults(fn=cmd_ui)
 
+    p = sp.add_parser("app", help="uygulama: bileşenleri kontrol et/kur, yerel FUXA'yı başlat, arayüzü aç (varsayılan)")
+    p.add_argument("--port", type=int, default=8765, help="arayüz portu")
+    p.add_argument("--fuxa-port", type=int, default=1881, help="yerel FUXA portu")
+    p.add_argument("--root", action="append", help="projelerin aranacağı klasör")
+    p.add_argument("--no-browser", action="store_true", help="tarayıcıyı açma")
+    p.set_defaults(fn=cmd_app)
+
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if not argv:  # çift tıklama / komutsuz çalıştırma
+        argv = ["app"]
     args = ap.parse_args(argv)
     try:
         return args.fn(args) or 0

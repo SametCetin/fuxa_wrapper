@@ -4,13 +4,23 @@ FUXA editöründe zor olan işleri (tag listesi, kaydetme, "sunucuda mı projede
 
 **Hedef makine** (gerçek HMI bilgisayarı) için ağdan hiçbir şey gönderilmez: `fuxaw export` proje dosyasını ve nereye/nasıl koyulacağını anlatan bir README'yi klasöre yazar, klasör elle taşınır.
 
-## Hızlı başlangıç: web arayüzü
+## Çalıştırma: `fuxaw.cmd`'ye çift tıkla
 
-```bash
-fuxaw ui --root C:\sct\syncthing\sc_genel\fuxa_projects
-```
+Uygulama tek giriş noktasıdır. `fuxaw.cmd`'ye çift tıklayınca (veya komutsuz `fuxaw`):
 
-Tarayıcıda `http://127.0.0.1:8765` açılır (sadece bu makineden erişilir, kapatmak için Ctrl+C). Sekmeler:
+1. **Python** 3.10+ aranır; yoksa winget ile Python 3.12 kurulur (`fuxaw.cmd` içinde).
+2. **Node.js** aranır; yoksa winget ile kurulur (winget yoksa nodejs.org'dan zip, yönetici izni gerekmez).
+3. **FUXA 1.3.4** aranır; yoksa npm ile `%LOCALAPPDATA%\fuxaw\fuxa` altına kurulur.
+4. Yerel test FUXA'sı başlatılır (`http://127.0.0.1:1881`, zaten çalışıyorsa dokunulmaz).
+5. Arayüz açılır: `http://127.0.0.1:8765`. Arayüz zaten çalışıyorsa sadece tarayıcı açılır.
+
+Pencere arayüz çalıştığı sürece açık kalır; kapatınca arayüz kapanır (yerel FUXA çalışmaya devam eder, Designer sekmesinden durdurulur). Bir adım başarısız olursa pencere mesajla birlikte bekler.
+
+Projeler arayüzün **Projeler** sekmesinden eklenen klasörlerde aranır (bir kez eklemek yeterli). Proje reposunun içinden çalıştırılırsa (ör. `fuxa_projects\fuxaw.cmd`) o repo da otomatik eklenir.
+
+## Web arayüzü
+
+Komut satırından sadece arayüzü açmak için: `fuxaw ui [--root KLASÖR] [--port 8765] [--no-browser]`. Sekmeler:
 
 - **Değişiklikler:** yerel / hedef karşılaştırması, öğeye tıklayınca fark (script kodu satır satır). Üst bardan Pull / Publish (test): önce plan ve lint gösterilir, onaylayınca yerel FUXA'ya gönderilir. Çakışmada ne yapılacağı sorulur. **Export:** hedef makine için klasöre çıkarır.
 - **Taglar:** tüm tag'ler; arama, cihaz/tip filtresi, "kullanılmayanlar". Kullanım sayısına tıklayınca tag'in hangi ekran öğesinde, hangi event'te ya da script'te kullanıldığı görünür. Seçilenler Excel'e yapıştırılabilir şekilde kopyalanır.
@@ -18,9 +28,9 @@ Tarayıcıda `http://127.0.0.1:8765` açılır (sadece bu makineden erişilir, k
 - **Designer:** yerel FUXA'yı kur/başlat/durdur, editörü aç.
 - **Projeler:** proje arama kökleri (eklenen kökler `%LOCALAPPDATA%\fuxaw\ui.json`'da saklanır).
 
-`--root` verilmezse bulunulan klasör (proje klasöründeysen onun üstü) aranır. `--port`, `--no-browser` da var.
+`--root` verilmezse bulunulan proje reposu (proje yoksa sadece kayıtlı kökler) aranır.
 
-## Hızlı başlangıç: yerel designer
+## Yerel designer (komut satırı)
 
 ```bash
 fuxaw designer
@@ -70,8 +80,9 @@ fuxaw build           src/'den <ad>_live.json üret (editörde Import project i�
 fuxaw backup          yerel FUXA'daki projenin yedeğini al (.fuxaw/backups)
 fuxaw export          hedef makine için klasöre çıkar: <proje>/publish/<ad>/ (proje JSON + README); -o ile başka klasör
 fuxaw init <klasör>   yeni proje (--url yerel FUXA, varsayılan http://127.0.0.1:1881; --from-file, --no-pull)
-fuxaw designer        yerel FUXA editörü (proje gerektirmez, bkz. Hızlı başlangıç)
-fuxaw ui              web arayüzü (bkz. Hızlı başlangıç)
+fuxaw                 (komutsuz) = fuxaw app: kontrol + kurulum + yerel FUXA + arayüz (bkz. Çalıştırma)
+fuxaw designer        yerel FUXA editörü (proje gerektirmez)
+fuxaw ui              sadece web arayüzü
 ```
 
 Başlatma örnekleri (proje reposunun kökünden):
@@ -129,4 +140,5 @@ python -m unittest discover -s tests -v
 - **2026-10-02:** `fuxaw designer`: Node.js (winget) + FUXA 1.3.4 (npm) bu makinede kuruldu, yerel FUXA çalıştı, editör açıldı.
 - **2026-10-02:** Web arayüzü ilk sürüm (`fuxaw ui`): durum/fark, pull/publish, tag tablosu, lint, designer kontrolü, projeyi designer'a yükleme. Publish planında ekran silmeleri artık ekran kayıtlarından önce (aynı adlı ekran yeniden oluşturulunca FUXA yenisini atlıyordu).
 - **2026-10-02:** Kullanıcı kararıyla model sadeleşti: publish sadece yerel test FUXA'sına; SSH/tünel desteği silindi; hedef makine için `fuxaw export` (klasör + README). Designer'a yükleme kalktı (publish zaten yerel FUXA'ya gidiyor).
+- **2026-10-02:** Tek giriş noktası: `fuxaw.cmd`'ye çift tıklama (komutsuz `fuxaw` = `fuxaw app`) Python/Node.js/FUXA'yı kontrol eder, eksikse kurar, yerel FUXA'yı başlatır ve arayüzü açar.
 - Sonraki aşamalar: AGENTS.md §9.

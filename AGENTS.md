@@ -26,7 +26,8 @@ Bu repo sadece **wrapper kodunu** içerir. Wrapper'ın yönettiği FUXA projeler
 - `fuxaw/ops.py`: CLI ve arayüzün **ortak** işlemleri (status, diff, pull, publish, export, tag tablosu). İlerleme `log` ile verilir, sonuç `{"rc": ...}` sözlüğü. İş mantığı buraya yazılır; cli.py ve web.py sadece sunar.
 - `fuxaw/cli.py`: komutlar (`status`, `diff`, `pull`, `publish`, `lint`, `build`, `backup`, `init`, `designer`, `ui`).
 - `fuxaw/web.py` + `fuxaw/static/`: web arayüzü (bkz. §4b). Derleme adımı yok; düz HTML/CSS/JS.
-- `fuxaw.cmd`: başlatıcı (`PYTHONPATH` = bu klasör). Proje reposundan çağrılır.
+- `fuxaw.cmd`: **uygulamanın giriş noktası**. Python 3.10+ arar (PATH, `%LOCALAPPDATA%\Programs\Python\Python31x`, `Program Files`, `C:\Python31x`), yoksa winget ile Python 3.12 kurar; sonra `python -m fuxaw %*`. Komutsuz çalıştırmada (çift tıklama) hata olursa `pause` ile bekler. CRLF ve ASCII olmalı.
+- Komutsuz `fuxaw` = `fuxaw app` (`cli.cmd_app`): `designer.start(assume_yes=True)` (Node.js/FUXA kontrolü + kurulum + yerel FUXA) → arayüz zaten çalışıyorsa (`web.running`) sadece tarayıcı, değilse `web.serve`. Kullanıcının isteği: uygulama açılınca kontrol edip gerekirse sormadan kurar. Arayüz sunucusu `allow_reuse_address = False` (Windows'ta aynı porta ikinci sunucu bağlanmasın).
 
 ## 2. Test
 
@@ -99,6 +100,8 @@ Kullanıcı FUXA editörünü açık tutup eski haliyle kaydederse API ile yazı
 Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.py`'ye kural, `mock_fuxa.py`'ye davranış ve teste örnek olarak ekle.
 
 ## 8. Bilinen ortam kısıtları
+
+- **Claude'un komutları sandbox'ta çalışır:** Bash/PowerShell araçlarıyla `%LOCALAPPDATA%` altına yazılan dosyalar (ör. `fuxaw\ui.json`) gerçek Windows oturumunda görünmeyebilir; oradan başlatılan süreçler de oturum/araç bitince kapanabilir. Kullanıcının uygulamasını etkileyen ayarları çalışan arayüzün API'si üzerinden yaz (ör. `POST /api/roots`); kalıcı çalışacak süreçleri `explorer.exe fuxaw.cmd` ile (çift tıklama gibi) başlat. 2026-10-02'de `ui.json` bu yüzden gerçek uygulamada görünmedi.
 
 - Claude'un FUXA kurulum dosyalarına (`node_modules\@frangoteam\fuxa\...`) yazması izin sisteminde engelli olabilir; yama gerekiyorsa satırı ve değişikliği kullanıcıya ver, kullanıcı yapsın, sonra okuyarak doğrula.
 - FUXA veriyi çalışma klasöründeki `_appdata`'ya yazar; başka klasörden başlatılırsa boş proje açılır (veri silinmez). `designer.py` bu yüzden FUXA'yı hep `data\` klasöründen başlatır.

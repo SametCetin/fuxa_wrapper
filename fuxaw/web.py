@@ -22,6 +22,7 @@ import os
 import threading
 import traceback
 import urllib.parse
+import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -275,9 +276,28 @@ def make_handler(app, port):
     return H
 
 
+class Server(ThreadingHTTPServer):
+    # Windows'ta SO_REUSEADDR aynı porta ikinci bir sunucunun bağlanmasına izin veriyor
+    allow_reuse_address = False
+    daemon_threads = True
+
+
+def running(port):
+    """Bu portta bir fuxaw arayüzü cevap veriyor mu?"""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/projects", timeout=2) as r:
+            return "projects" in json.loads(r.read())
+    except (OSError, ValueError):
+        return False
+
+
 def serve(roots, port=8765, open_browser=True, log=print):
     app = App(roots)
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app, port))
+    try:
+        httpd = Server(("127.0.0.1", port), make_handler(app, port))
+    except OSError as ex:
+        log(f"Hata: arayüz {port} portunu açamadı ({ex.strerror or ex}). Port başka bir uygulamada; --port ile değiştir.")
+        return 1
     url = f"http://127.0.0.1:{port}/"
     log(f"fuxaw arayüzü: {url}  (durdurmak için Ctrl+C)")
     log("Proje arama kökleri: " + (", ".join(app.roots) or "yok"))

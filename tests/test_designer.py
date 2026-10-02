@@ -47,5 +47,19 @@ class DesignerTest(unittest.TestCase):
                 designer.ensure_components(log=lambda *a: None)
 
 
+class AppEntryTest(unittest.TestCase):
+    def test_no_args_runs_app(self):
+        from fuxaw import cli, web
+        calls = []
+        with mock.patch.object(designer, "start", lambda **kw: calls.append(("start", kw))), \
+                mock.patch.object(web, "running", return_value=False), \
+                mock.patch.object(web, "serve", lambda roots, **kw: calls.append(("serve", kw)) or 0), \
+                mock.patch("sys.stdout"):
+            self.assertEqual(cli.main([]), 0)
+        self.assertEqual([c[0] for c in calls], ["start", "serve"])
+        self.assertTrue(calls[0][1]["assume_yes"])  # eksik bileşenler sormadan kurulur
+        self.assertEqual(calls[1][1]["port"], 8765)
+
+
 if __name__ == "__main__":
     unittest.main()
