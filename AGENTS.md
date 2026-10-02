@@ -83,6 +83,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
   - Bekleyen düzenlemeler, svg-edit'in `undoMgr.addCommandToHistory`'sine bağlanan sayaçla (`window.__fxw.edits`) izlenir.
   - Kaydet'ten önce gizli menüdeki "Save Project" programla tıklanır (`flushEditor`; menü katmanı o an `opacity: 0`).
   - FUXA sürümü değişirse bu seçiciler (`button[title="Save Project"]`, `.mat-mdc-menu-item`, `svgEditor.canvas.undoMgr`) kontrol edilmeli.
+- **Ayarlar** menüsü (Ctrl+4 / Ctrl+5) aynı görünümde FUXA'nın `/device` (Connections settings) ve `/plugins` (Server Plugins) sayfalarını açar (`main.js` → `showEditorPage`). `/editor`'dan ayrılmadan önce `flushEditor` çalışır (bekleyen çizimler kaybolmasın). Proje → Editör (Ctrl+1) görünüm başka sayfadaysa `/editor`'a geri yükler.
 - Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
 - Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
 
@@ -124,6 +125,7 @@ Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.js`'ye kural ve `tests
 ## 8. Bilinen ortam kısıtları
 
 - **Claude'un komutları sandbox'ta çalışır:** araçla başlatılan süreçler araç bitince kapanabilir; uzun süre açık kalacak uygulamayı `run_in_background` ile başlat. Pencereyi görmek için computer-use'ta uygulama adı `electron.exe` (geliştirme) veya `fuxaw.exe` (paket).
+- Paketleyici Electron'u ayrıca zip olarak indirmesin diye `build.electronDist` = `node_modules/electron/dist` (`npm install`'ın indirdiği kopya). Bu sadece aynı platform için paket üretir; başka işletim sistemi için paketlerken bu ayar kaldırılmalı/üzerine yazılmalı.
 - Git Bash'teki `tar`, `C:\...` yolunu uzak sunucu sanar; `fetch-node.js` Windows'ta `System32\tar.exe` kullanır.
 - npm 11 bağımlılıkların kurulum betiklerini ("allow-scripts") çalıştırmıyor: Electron ikili dosyası bu yüzden `postinstall`'da `node node_modules/electron/install.js` ile iner. FUXA'nın `sqlite3`'ü hazır derlenmiş `node_sqlite3.node` ile geliyor, sorun yok.
 - Eski Python sürümünün `%LOCALAPPDATA%\fuxaw\fuxa` altına kurduğu FUXA (port 1881) bu uygulamayla ilgisiz; isteyen silebilir.

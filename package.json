@@ -23,6 +23,7 @@
   "build": {
     "appId": "org.sct.fuxaw",
     "productName": "fuxaw",
+    "electronDist": "node_modules/electron/dist",
     "files": [
       "src/**/*",
       "package.json"

@@ -495,6 +495,16 @@ async function publishRun() {
   return publisher.publish(fxprj.read(cur.path).doc, cur.path);
 }
 
+/** Gömülü editörün bir sayfasını (editor, device, plugins) Editör sekmesinde aç. */
+async function showEditorPage(page) {
+  if (!cur.doc || fuxaState.status !== 'ready' || !editorView) return;
+  win.webContents.send('show-tab', 'editor');
+  const url = editorView.webContents.getURL();
+  if (url.startsWith(`${fuxaState.url}/${page}`)) return;
+  if (url.includes('/editor')) await flushEditor(); // ayrılmadan bekleyen çizimleri sunucuya aktar
+  await editorView.webContents.loadURL(`${fuxaState.url}/${page}`).catch(() => {});
+}
+
 function openRuntime() {
   if (!cur.doc || fuxaState.status !== 'ready') return;
   const w = new BrowserWindow({
@@ -538,12 +548,19 @@ function buildMenu() {
     {
       label: 'Proje',
       submenu: [
-        { label: 'Editör', accelerator: 'CmdOrCtrl+1', click: send('tab:editor') },
+        { label: 'Editör', accelerator: 'CmdOrCtrl+1', click: run(() => showEditorPage('editor')) },
         { label: 'Taglar', accelerator: 'CmdOrCtrl+2', click: send('tab:tags') },
         { label: 'Kontrol (lint)', accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
         { type: 'separator' },
         { label: 'Runtime\'ı aç (önizleme)', accelerator: 'F5', click: openRuntime },
         { label: 'Editörü yenile', click: () => cur.doc && loadEditor() },
+      ],
+    },
+    {
+      label: 'Ayarlar',
+      submenu: [
+        { label: 'Bağlantılar (cihazlar)…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
+        { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
       ],
     },
     {

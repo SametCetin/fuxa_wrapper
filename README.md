@@ -17,8 +17,10 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
+| Ayarlar → Bağlantılar (cihazlar)… (Ctrl+4) | Editörün bağlantı ayarları sayfası (PLC/cihaz bağlantıları) |
+| Ayarlar → Sunucu eklentileri… (Ctrl+5) | Editörün sunucu eklentileri sayfası (ör. `ads-client`); Ctrl+1 çizim editörüne döner |
 
-Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje menülerindedir (pencerede ayrıca düğme yok).
+Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
 
 `.fxprj` dosyasına çift tıklamak da projeyi açar (kurulum paketi dosya ilişkilendirmesini yapar). Kaydedilmemiş değişiklik varsa başlıkta `●` görünür ve kapatırken sorulur.
 
