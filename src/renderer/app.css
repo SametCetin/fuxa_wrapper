@@ -50,6 +50,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 button.primary:hover:not(:disabled) { filter: brightness(1.1); background: var(--accent); }
 button.big { padding: 10px 22px; font-size: 14px; }
+button.tag-delete { color: var(--err); }
 input, select {
   font: inherit; color: var(--text); background: var(--panel-2);
   border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px;

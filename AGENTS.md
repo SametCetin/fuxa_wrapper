@@ -68,6 +68,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
 - **Değişiklik takibi:** her 1,5 sn FUXA'daki projenin özeti dosyadakiyle karşılaştırılır + editördeki bekleyen düzenleme sayısı (§4). Kaydedilmemiş değişiklik varsa başlıkta `●`, Yeni/Aç/Kapat'ta "Kaydet / Kaydetme / İptal" sorulur.
 - **Publish** kaydedilmiş hali yazar; kaydedilmemiş değişiklik varsa önce kaydettirir. Önce plan (klasör, dosyalar, lint) gösterilir; lint HATA varsa yazmaz. Çıktı: `<publish.dir>/<ad>/<ad>.json` + `README.md` (hedef makinede ☰ → *Open Project*, önce *Save Project As* ile yedek, cihaz/tag özeti).
 - **Yeni tag** (Taglar sekmesi): cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri), açıklama. `core/tags.js` → `buildTag` editörün biçimini üretir (ADS: tip `Boolean/Number/String` + adres; FuxaServer/internal: küçük harfli tip + `init` + `label`; diğer cihazlarda cihazdaki mevcut tipler). Ekleme: editör flush → `GET` → `set-device` (cihaz bağlantısı bir an kopar) → editör yeniden yüklenir (bellekteki eski cihaz kopyası yeni tag'i ezmesin). Dosyaya yazmak için kaydetmek gerekir.
+- **Tag silme** (Taglar satırındaki Sil): flush → GET → `prepareTagRemoval` ile yalnız seçilen cihazın kopyasını hazırla → kullanım uyarılı onay (varsayılan İptal) → set-device → editörü yeniden yükle. Kullanımlar otomatik temizlenmez. Silme kaydedilmemiş değişikliktir; dosyaya yazmak için Kaydet gerekir.
 - Yeni proje "Adsız" açılır; ilk kayıtta dosya adı proje adı olur.
 - Tek örnek (single instance): ikinci açılış (ör. `.fxprj`'e çift tıklama) mevcut pencerede açar.
 - Son projeler: `<userData>/recent.json` (en fazla 10).
@@ -85,6 +86,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
   - Kaydet'ten önce gizli menüdeki "Save Project" programla tıklanır (`flushEditor`; menü katmanı o an `opacity: 0`).
   - HTML kontrolünün width/height alanında yazılan değer, çizim alanının `mousedown` işlemi odağın değişmesini engellediği için seçim değişirken kaybolabilir. `editorDimensions.js` bu alanları seçim değişmeden önce editörün kendi `change` işlemiyle uygular; `flushEditor` de Kaydet öncesinde bekleyen boyutu uygular. Boyut alanları en fazla iki ondalık basamak gösterir (`80.00006` → `80`); bu gösterim düzeltmesi SVG geometrisini değiştirmez. Enter/Tab, geri alma ve kaydedip yeniden yükleme akışları korunur.
   - FUXA sürümü değişirse bu seçiciler (`button[title="Save Project"]`, `.mat-mdc-menu-item`, `svgEditor.canvas.undoMgr`) kontrol edilmeli.
+  - Tag seçicisindeki metni boşaltmak eski tag kimliğini tutuyordu. `editorTagClear.js` başlatıcıda yalnız servis edilen ana betiği bellekte düzeltir; iki seçicide boş alan `variableId`'yi kaldırır. Orijinal paket dosyaları değişmez, arama metni yazmak mevcut bağlantıyı bozmaz. Düzeltme 1.3.4 ve beklenen iki kod noktasıyla sınırlıdır; sürüm değişiminde doğrulanmalıdır.
 - **Ayarlar → Bağlantılar** (Ctrl+4) uygulamanın Bağlantılar sekmesini açar. ADS cihazları burada Yerel TwinCAT / ADS-TCP yöntemi seçilerek eklenir veya düzenlenir. `core/connections.js` doğrulama ve tag/kimlik koruma; `main.js` flush → GET → set-device → editörü yeniden yükleme akışını yönetir. Diğer bağlantı türleri aynı sekmedeki düğmeyle gömülü `/device` sayfasına gider. Ctrl+5 `/plugins` sayfasını açar (`main.js` → `showEditorPage`). `/editor`'dan ayrılmadan önce `flushEditor` çalışır. Proje → Editör (Ctrl+1) görünüm başka sayfadaysa `/editor`'a geri yükler.
 - Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
 - Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
@@ -136,6 +138,6 @@ Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.js`'ye kural ve `tests
 
 1. Masaüstü uygulaması iskeleti ✅ (2026-10-02): pencere + menü, Yeni/Aç/Kaydet/Farklı Kaydet/Son Projeler, `.fxprj`, gömülü FUXA + editör, değişiklik takibi, Publish (klasöre), Taglar, Kontrol (lint), runtime önizleme, Windows paketi (`dist:dir`) denendi.
 2. Paket: uygulama simgesi, NSIS kurulum paketini dene, Linux/macOS'ta derle ve dene, paket boyutunu küçült (FUXA'nın kullanılmayan bağımlılıkları; şu an açık hali ~675 MB).
-3. Tag düzenleme (ekleme ✅ 2026-10-02; yeniden adlandır, adres değiştir, sil; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
+3. Tag düzenleme (ekleme ✅ 2026-10-02, silme ✅ 2026-10-06; yeniden adlandır, adres değiştir; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
 4. Çökme sonrası kurtarma (FUXA veri klasöründe kalan kaydedilmemiş hali önerme).
 5. TwinCAT değişken seçici (GVL'den), ek lint kuralları.

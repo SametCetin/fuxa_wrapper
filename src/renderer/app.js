@@ -154,7 +154,7 @@ function renderTags() {
   body.replaceChildren();
   $('tagUses').hidden = true;
   if (!shown.length) {
-    body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: rows.length ? 'Filtreye uyan tag yok.' : 'Projede tag yok.' })));
+    body.append(el('tr', {}, el('td', { colspan: '6', class: 'empty', text: rows.length ? 'Filtreye uyan tag yok.' : 'Projede tag yok.' })));
     return;
   }
   for (const r of shown) {
@@ -165,7 +165,26 @@ function renderTags() {
       el('td', { text: r.device }),
       el('td', { class: 'num' }, r.uses.length
         ? el('span', { class: 'link', text: String(r.uses.length), onclick: () => showUses(r, tr) })
-        : el('span', { class: 'muted', text: '0' })));
+        : el('span', { class: 'muted', text: '0' })),
+      el('td', {}, el('button', { class: 'tag-delete', text: 'Sil', 'aria-label': `${r.name} tag'ini sil`,
+        onclick: async (event) => {
+          if (state.busy) return;
+          const button = event.currentTarget;
+          button.disabled = true;
+          try {
+            const res = await window.fxw.deleteTag({ deviceId: String(r.deviceId), tagId: r.id });
+            if (!res || res.canceled) return;
+            if (res.errors) {
+              openModal('Tag silinemedi', res.errors.map(text => el('p', { class: 'err', text })),
+                [{ label: 'Tamam', onclick: closeModal }]);
+              return;
+            }
+            analysis = res.analysis || analysis;
+            renderLint();
+            renderTags();
+            $('statusText').textContent = `"${res.tag.name}" silindi (kaydetmeyi unutma)`;
+          } finally { button.disabled = false; }
+        } })));
     body.append(tr);
   }
 }

@@ -14,7 +14,7 @@ const api = require('./fuxaApi');
 const fxprj = require('../core/fxprj');
 const model = require('../core/model');
 const lintmod = require('../core/lint');
-const { tagTable, tagTypesFor, isInternal, buildTag } = require('../core/tags');
+const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = require('../core/tags');
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
 const { installDimensionCommit } = require('./editorDimensions');
@@ -455,6 +455,28 @@ async function addTag(spec) {
   return { ok: true, tag: res.tag, analysis: await analyze() };
 }
 
+async function deleteTag(spec) {
+  if (!cur.doc || !spec || typeof spec.deviceId !== 'string' || typeof spec.tagId !== 'string') return null;
+  const url = requireFuxa();
+  await flushEditor();
+  const project = await api.getProject(url);
+  const plan = prepareTagRemoval(project, spec);
+  if (plan.errors) return plan;
+  const usage = plan.uses.length
+    ? `Tag kullanılıyor. Silersen bu referanslar bozulur:\n${plan.uses.map(u => `${u.where} — ${u.how}`).join('\n')}\n\n`
+    : '';
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning', title: APP_NAME, message: `"${plan.tag.name}" tag'i silinsin mi?`,
+    detail: `${plan.device.name}\n\n${usage}Değişikliği dosyaya yazmak için Kaydet gerekir.`,
+    buttons: ['İptal', 'Sil'], defaultId: 0, cancelId: 0, noLink: true,
+  });
+  if (response !== 1) return { canceled: true };
+  await api.projectData(url, 'set-device', plan.device);
+  await loadEditor();
+  cur.liveDigest = model.digest(await api.getProject(url));
+  return { ok: true, tag: plan.tag, analysis: await analyze() };
+}
+
 async function connections() {
   if (!cur.doc) return null;
   await flushEditor();
@@ -633,6 +655,7 @@ function registerIpc() {
   handle('save-as', guard(() => saveProject(true)));
   handle('analyze', guard(analyze));
   handle('tag:add', guard(addTag));
+  handle('tag:delete', guard(deleteTag));
   handle('connections:list', guard(connections));
   handle('connections:save', guard(saveConnection));
   handle('connections:other', guard(() => showEditorPage('device')));

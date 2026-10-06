@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const { spawn, execFileSync } = require('node:child_process');
+const { installEditorTagClear } = require('./editorTagClear');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const IS_WIN = process.platform === 'win32';
@@ -100,9 +101,11 @@ function writeBoot(userDir, pluginPath) {
     '  setInterval(() => { try { process.kill(parent, 0); } catch { process.exit(0); } }, 2000).unref();',
     '}',
     'const main = process.argv[2];',
+    `const restoreStatic = (${installEditorTagClear.toString()})(require('node:path').dirname(main));`,
     `require(${JSON.stringify(pluginPath)}).install(require('node:path').dirname(main));`,
     'process.argv.splice(1, 1); // FUXA argümanları argv[2]\'den okur: [node, main.js, --port, ...]',
     'require(main);',
+    'restoreStatic();',
     '',
   ].join('\n');
   const file = path.join(userDir, 'fuxaw-boot.js');

@@ -27,7 +27,7 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 **Sekmeler:**
 
 - **Editör:** FUXA editörü (ekranlar, cihazlar, tag'ler, script'ler). Editörün kendi ☰ proje menüsü gizlidir; kaydetme/açma uygulamanın Dosya menüsünden yapılır.
-- **Taglar:** tüm tag'ler; arama, cihaz filtresi, "kullanılmayanlar". Kullanım sayısına tıklayınca tag'in hangi ekran öğesinde, hangi event'te ya da script'te kullanıldığı görünür. **Yeni tag**: cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri) ve açıklama ile tag ekler; tag hemen eklenir (cihaz bağlantısı bir an kopar), dosyaya yazmak için kaydet. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
+- **Taglar:** tüm tag'ler; arama, cihaz filtresi, "kullanılmayanlar". Kullanım sayısına tıklayınca tag'in hangi ekran öğesinde, hangi event'te ya da script'te kullanıldığı görünür. **Yeni tag**: cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri) ve açıklama ile tag ekler; tag hemen eklenir (cihaz bağlantısı bir an kopar), dosyaya yazmak için kaydet. Satırdaki **Sil** onay isteyerek tag'i kaldırır; tespit edilen kullanımlar varsa referansların bozulacağını gösterir. Silme sonrası dosyaya yazmak için kaydet. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
 - **Kontrol:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
 
 ### ADS okuma aralığı

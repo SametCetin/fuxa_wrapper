@@ -15,7 +15,7 @@ function tagTable(items) {
     for (const [tid, tag] of tags) {
       const row = {
         id: tid, name: tag.name || '', type: tag.type || '', address: tag.address || '',
-        device: dev.name || '', deviceType: dev.type || '', uses: [],
+        deviceId: dev.id, device: dev.name || '', deviceType: dev.type || '', uses: [],
       };
       rows.push(row);
       byId.set(tid, row);
@@ -31,6 +31,9 @@ function tagTable(items) {
       const where = `${view.name} / ${ga.name || gid}`;
       const prop = ga.property || {};
       if (byId.has(prop.variableId)) byId.get(prop.variableId).uses.push({ where, how: 'gösterim/renk' });
+      for (const action of prop.actions || []) {
+        if (byId.has(action.variableId)) byId.get(action.variableId).uses.push({ where, how: `aksiyon → ${action.type}` });
+      }
       for (const ev of prop.events || []) {
         const opts = ev.actoptions || {};
         const tid = (opts.variable && opts.variable.variableId) || opts.variableId;
@@ -41,6 +44,9 @@ function tagTable(items) {
     }
   }
   for (const [, sc] of model.itemsOfKind(items, 'script')) {
+    for (const r of rows) {
+      if ((sc.code || '').includes(r.id)) r.uses.push({ where: `script ${sc.name}`, how: 'tag kimliği' });
+    }
     for (const m of (sc.code || '').matchAll(GET_TAG_ID)) {
       for (const r of byName.get(m[2]) || []) {
         if (m[4] === undefined || m[4] === r.device) r.uses.push({ where: `script ${sc.name}`, how: '$getTagId' });
@@ -48,6 +54,18 @@ function tagTable(items) {
     }
   }
   return rows;
+}
+
+/** Silinecek cihaz kopyası; proje ve diğer taglar değiştirilmez. */
+function prepareTagRemoval(project, spec) {
+  const device = project.devices && Object.hasOwn(project.devices, spec.deviceId) && project.devices[spec.deviceId];
+  if (!device || !device.tags || !Object.hasOwn(device.tags, spec.tagId)) {
+    return { errors: ['Tag bulunamadı; listeyi yenile.'] };
+  }
+  const row = tagTable(model.splitProject(project)).find(r => r.deviceId === device.id && r.id === spec.tagId);
+  const updated = model.clone(device);
+  delete updated.tags[spec.tagId];
+  return { device: updated, tag: device.tags[spec.tagId], uses: row ? row.uses : [] };
 }
 
 // ---------------------------------------------------------------- yeni tag
@@ -108,4 +126,4 @@ function buildTag(device, spec, id = newTagId(device.tags)) {
   return { tag };
 }
 
-module.exports = { tagTable, tagTypesFor, isInternal, newTagId, buildTag };
+module.exports = { tagTable, tagTypesFor, isInternal, newTagId, buildTag, prepareTagRemoval };

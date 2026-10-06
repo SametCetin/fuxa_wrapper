@@ -220,3 +220,36 @@ test('yeni tag id mevcut id ile çakışmaz', () => {
   const id = tags.newTagId({ 't_aaaaaaaa-bbbbbbbb': {} }, () => seq.shift());
   assert.equal(id, 't_cccccccc-dddddddd');
 });
+
+test('tag silme yalnız seçilen cihazı hazırlar; kaynak proje ve diğer taglar korunur', () => {
+  const project = live();
+  const device = project.devices[DEV];
+  const tagId = Object.keys(device.tags)[0];
+  const before = structuredClone(project);
+  const result = tags.prepareTagRemoval(project, { deviceId: DEV, tagId });
+  assert.equal(result.tag.id, tagId);
+  assert.ok(!Object.hasOwn(result.device.tags, tagId));
+  assert.equal(Object.keys(result.device.tags).length, Object.keys(device.tags).length - 1);
+  assert.deepEqual(project, before);
+  const expected = structuredClone(device);
+  delete expected.tags[tagId];
+  assert.deepEqual(result.device, expected);
+  assert.ok(tags.prepareTagRemoval(project, { deviceId: DEV, tagId: 'yok' }).errors);
+  assert.ok(tags.prepareTagRemoval(project, { deviceId: '__proto__', tagId }).errors);
+});
+
+test('tag silme uyarısı grup görünürlüğü, düğme olayları ve script kullanımlarını içerir', () => {
+  const project = {
+    devices: { d: { id: 'd', name: 'PLC', tags: { t_test: { id: 't_test', name: 'Dialog' } } } },
+    hmi: { views: [{ id: 'v', name: 'Ekran', items: {
+      g: { name: 'Grup', property: { actions: [{ variableId: 't_test', type: 'hide' }] } },
+      b: { name: 'Evet', property: { events: [{ type: 'click', action: 'onSetValue', actoptions: { variable: { variableId: 't_test' } } }] } },
+    } }] },
+    scripts: [{ id: 's', name: 'Script', code: "$getTagId('Dialog', 'PLC'); $getTag('t_test');" }],
+  };
+  const result = tags.prepareTagRemoval(project, { deviceId: 'd', tagId: 't_test' });
+  assert.equal(result.uses.length, 4);
+  assert.ok(result.uses.some(u => u.where === 'Ekran / Grup'));
+  assert.ok(result.uses.some(u => u.where === 'Ekran / Evet'));
+  assert.equal(tags.tagTable(model.splitProject(project))[0].deviceId, 'd');
+});

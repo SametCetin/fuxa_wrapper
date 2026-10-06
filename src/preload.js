@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('fxw', {
   saveAs: call('save-as'),
   analyze: call('analyze'),
   addTag: call('tag:add'),
+  deleteTag: call('tag:delete'),
   connections: call('connections:list'),
   saveConnection: call('connections:save'),
   otherConnections: call('connections:other'),
