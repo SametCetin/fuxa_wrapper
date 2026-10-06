@@ -335,7 +335,7 @@ async function showConnection(device = null) {
     errors.replaceChildren();
     tcpFields.forEach(field => { field.hidden = method.value !== 'tcp'; });
     help.textContent = method.value === 'native'
-      ? "Bu bilgisayarda TwinCAT ve Beckhoff ADS API'si kuruluysa seç. Yerel TwinCAT router'ı kullanılır; uzak PLC için router'da ADS rotası bulunmalı. Tag değerleri yaklaşık saniyede bir okunur."
+      ? "Bu bilgisayarda TwinCAT ve Beckhoff ADS API'si kuruluysa seç. Yerel TwinCAT router'ı kullanılır; uzak PLC için router'da ADS rotası bulunmalı. Tag değerleri seçilen okuma aralığıyla okunur."
       : method.value === 'tcp'
         ? "TCP üzerinden ADS bağlantısı için seç. Router adresi hedef PLC'nin IP adresidir; varsayılan TCP portu 48898'dir. Yerel AMS adresi ve hedefte uygun ADS rotası gerekebilir."
         : 'Bu bilgisayarın kurulu TwinCAT router’ını kullanmak için Yerel TwinCAT; TCP router’a bağlanmak için ADS / TCP seç.';

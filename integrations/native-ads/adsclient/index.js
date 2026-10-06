@@ -316,11 +316,14 @@ function ADSclient(_data, _logger, _events, _runtime) {
         const tags = Object.values(data.tags || {});
         _mapTopicsAddress(tags);
         const topics = [...new Set(tags.map(tag => tag.address))];
+        // Use the device's polling interval for both TCP notifications and native reads.
+        const polling = Number(data.polling);
+        const cycleTime = Number.isInteger(polling) && polling >= 50 && polling <= 3600000 ? polling : 1000;
         const errors = [];
         let subscribed = 0;
         for (const topic of topics) {
             try {
-                await client.subscribeValue(topic, _onChange, 1000, false);
+                await client.subscribeValue(topic, _onChange, cycleTime, false);
                 subscribed++;
             } catch (err) {
                 errors.push(err);

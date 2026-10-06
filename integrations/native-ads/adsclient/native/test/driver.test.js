@@ -6,13 +6,14 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 
-function driver({ blocked, invalid = [] } = {}) {
+function driver({ blocked, invalid = [], polling, transport = 'tcp' } = {}) {
     let client;
     class Client extends EventEmitter {
-        constructor() { super(); client = this; this.connection = { connected: false }; this.topics = []; this.writes = []; }
+        constructor() { super(); client = this; this.connection = { connected: false }; this.topics = []; this.writes = []; this.subscriptions = []; }
         async connect() { this.connection.connected = true; this.emit('connect', { targetAmsNetId: '1.2.3.4.5.6' }); return { targetAmsNetId: '1.2.3.4.5.6' }; }
-        async subscribeValue(topic, callback) {
+        async subscribeValue(topic, callback, cycleTime, sendOnChange) {
             this.topics.push(topic);
+            this.subscriptions.push({ cycleTime, sendOnChange });
             if (blocked) await blocked;
             if (invalid.includes(topic)) throw new Error('Symbol not found');
             callback({ value: topic === 'MAIN.Number' ? 42 : false, timestamp: new Date() }, { symbol: { name: topic } });
@@ -21,7 +22,7 @@ function driver({ blocked, invalid = [] } = {}) {
         async disconnect() { this.connection.connected = false; this.emit('disconnect', false); }
         async writeValue(address, value) { this.writes.push({ address, value }); }
     }
-    const data = { name: 'PLC', type: 'ADSclient', property: { address: '1.2.3.4.5.6:851' }, tags: {
+    const data = { name: 'PLC', type: 'ADSclient', polling, property: { address: '1.2.3.4.5.6:851', adsTransport: transport }, tags: {
         bool: { id: 'bool', address: 'MAIN.Bool', type: 'Boolean' },
         number: { id: 'number', address: 'MAIN.Number', type: 'Number' },
         duplicate: { id: 'duplicate', address: 'MAIN.Bool', type: 'Boolean' },
@@ -66,6 +67,31 @@ test('connection waits for subscriptions, deduplicates addresses and stays conne
     assert.equal(setup.comm.getValue('number').value, 42);
     assert.equal(setup.comm.getValue('bool').value, false);
     await setup.comm.disconnect();
+});
+
+test('ADS subscriptions follow device polling on TCP and native transports, including after reload', async () => {
+    for (const transport of ['tcp', 'native']) {
+        const setup = driver({ polling: 100, transport });
+        await setup.comm.connect();
+        assert.deepEqual(setup.client.subscriptions, [
+            { cycleTime: 100, sendOnChange: false }, { cycleTime: 100, sendOnChange: false },
+        ]);
+        await setup.comm.disconnect();
+        setup.comm.load({ name: 'PLC', polling: 250, property: { address: '1.2.3.4.5.6:851', adsTransport: transport },
+            tags: { bool: { id: 'bool', address: 'MAIN.Bool', type: 'Boolean' } } });
+        await setup.comm.connect();
+        assert.equal(setup.client.subscriptions[0].cycleTime, 250);
+        await setup.comm.disconnect();
+    }
+});
+
+test('ADS subscriptions use a safe default for missing or invalid intervals', async () => {
+    for (const polling of [undefined, 0, -1, 49, 100.5, 'invalid', Infinity, 3600001]) {
+        const setup = driver({ polling });
+        await setup.comm.connect();
+        assert.ok(setup.client.subscriptions.every(sub => sub.cycleTime === 1000));
+        await setup.comm.disconnect();
+    }
 });
 
 test('an invalid symbol keeps other valid tags working', async () => {
