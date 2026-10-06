@@ -35,6 +35,7 @@ Düz JavaScript (CommonJS), derleme adımı yok.
 - `src/renderer/splash.html` + `splash.css`: açılış penceresi (betiksiz). `main.js` → `createSplash` / `revealMain` (en az 1,2 sn görünür; açılışta verilen `.fxprj` ana pencere görünmeden yüklenir).
 - `src/renderer/`: pencere arayüzü (Editör/Taglar/Kontrol sekmeleri; komutlar sadece menüde, ayrıca düğme yok; karşılama ekranı, Publish ve Yeni tag pencereleri). Metinler DOM'a hep `textContent` ile basılır (`el()`); `innerHTML` kullanma (proje/tag/dosya adları dışarıdan gelir).
 - `fuxa-runtime/package.json`: uygulamayla gelen FUXA sürümü (sabit `1.3.4`). `npm install` sonrası `postinstall` kurar.
+- `integrations/native-ads/`: uygulamayla gelen offline ADS eklentisi; `index.js` başlatıcı adaptörü, `adsclient/` sürücü ve Windows yerel köprüsü. Orijinal editör paketinin dosyaları değiştirilmez. Başlatıcı varsayılan eklentilerin ardından `loadPlugin` ile sürücüyü kaydeder; `plugins.init` ve `plugins.addPlugin` yalnızca süreç belleğinde uyarlanır. Bu yükleme noktaları yeni bileşen sürümünde doğrulanmalı. `npm run install:ads` bağımlılıkları kurar, `npm run setup:ads` yerel köprüyü hazırlar. Paket: `resources/plugins/native-ads` (bağımlılıkları dahil).
 - `scripts/fetch-node.js`: kurulum paketine konacak Node.js'i `vendor/node/`'a indirir (sabit sürüm, SHA256 doğrulamalı).
 - `package.json` → `build`: electron-builder ayarları (NSIS / AppImage+deb / dmg, `.fxprj` dosya ilişkilendirme).
 

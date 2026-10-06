@@ -33,15 +33,18 @@ function driver({ blocked, invalid = [] } = {}) {
     const sandbox = { module: { exports: {} }, console, require: name => {
         if (name === 'ads-client') return { Client };
         if (name === './native/client') return { createNativeClient: () => Client };
-        if (name === '../../utils') return { isNullOrUndefined: value => value === undefined || value === null };
-        if (name === '../device-utils') return {
-            tagValueCompose: async (value, oldValue, tag) => { assert.ok(tag?.type, 'tag must be the third argument'); return value; },
-            tagRawCalculator: async value => value,
-        };
         throw new Error('Unexpected import: ' + name);
     } };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../index.js'), 'utf8'), sandbox);
-    const comm = sandbox.module.exports.create(data, { info() {}, warn() {}, error: error => errors.push(error) }, events);
+    const loaded = sandbox.module.exports.createDriver({
+        ads: { Client },
+        utils: { isNullOrUndefined: value => value === undefined || value === null },
+        deviceUtils: {
+            tagValueCompose: async (value, oldValue, tag) => { assert.ok(tag?.type, 'tag must be the third argument'); return value; },
+            tagRawCalculator: async value => value,
+        },
+    });
+    const comm = loaded.create(data, { info() {}, warn() {}, error: error => errors.push(error) }, events);
     return { comm, statuses, errors, get client() { return client; } };
 }
 

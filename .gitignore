@@ -6,3 +6,5 @@ dist/
 .codegraph/
 /scripts
 /.native-ads-backup/
+/.cache/
+integrations/native-ads/adsclient/native/bin/

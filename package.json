@@ -11,11 +11,12 @@
     "start": "electron .",
     "test": "node --test \"tests/**/*.test.js\" \"integrations/native-ads/adsclient/native/test/*.test.js\"",
     "postinstall": "node node_modules/electron/install.js && npm run setup:fuxa",
-    "setup:fuxa": "npm install --prefix fuxa-runtime --no-audit --no-fund && npm run setup:ads",
+    "setup:fuxa": "npm install --prefix fuxa-runtime --no-audit --no-fund && npm run install:ads",
     "fetch:node": "node scripts/fetch-node.js",
     "dist": "npm run fetch:node && npm run setup:ads && electron-builder",
     "dist:dir": "npm run fetch:node && npm run setup:ads && electron-builder --dir",
-    "setup:ads": "node integrations/native-ads/apply.js",
+    "setup:ads": "node integrations/native-ads/prepare.js",
+    "install:ads": "npm install --prefix integrations/native-ads --no-audit --no-fund && npm run setup:ads",
     "test:ads": "node --test \"integrations/native-ads/adsclient/native/test/*.test.js\"",
     "probe:ads": "node integrations/native-ads/probe.js"
   },
@@ -32,6 +33,16 @@
       "package.json"
     ],
     "extraResources": [
+      {
+        "from": "integrations/native-ads",
+        "to": "plugins/native-ads",
+        "filter": ["**/*", "!**/test/**", "!probe.js", "!prepare.js"]
+      },
+      {
+        "from": "integrations/native-ads/node_modules",
+        "to": "plugins/native-ads/node_modules",
+        "filter": ["**/*"]
+      },
       {
         "from": "fuxa-runtime/node_modules",
         "to": "fuxa/node_modules",

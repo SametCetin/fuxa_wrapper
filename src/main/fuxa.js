@@ -91,7 +91,7 @@ function writeSettings(userDir, fuxaMain) {
  * FUXA'yı çalıştıran küçük başlatıcı: uygulama çökse bile FUXA açık kalmasın diye ana süreci izler,
  * o kapanınca kendini kapatır. (asar içindeki dosyayı node okuyamadığı için veri klasörüne yazılır.)
  */
-function writeBoot(userDir) {
+function writeBoot(userDir, pluginPath) {
   const text = [
     '// fuxaw tarafından her açılışta yazılır; elle değiştirme.',
     "'use strict';",
@@ -100,6 +100,7 @@ function writeBoot(userDir) {
     '  setInterval(() => { try { process.kill(parent, 0); } catch { process.exit(0); } }, 2000).unref();',
     '}',
     'const main = process.argv[2];',
+    `require(${JSON.stringify(pluginPath)}).install(require('node:path').dirname(main));`,
     'process.argv.splice(1, 1); // FUXA argümanları argv[2]\'den okur: [node, main.js, --port, ...]',
     'require(main);',
     '',
@@ -129,7 +130,10 @@ class FuxaServer {
     fs.mkdirSync(this.userDir, { recursive: true });
     fs.mkdirSync(path.dirname(this.logFile), { recursive: true });
     writeSettings(this.userDir, main);
-    const boot = writeBoot(this.userDir);
+    const pluginPath = this.packaged
+      ? path.join(resourcesDir(true), 'plugins', 'native-ads')
+      : path.join(ROOT, 'integrations', 'native-ads');
+    const boot = writeBoot(this.userDir, pluginPath);
     this.port = await freePort();
     const log = fs.openSync(this.logFile, 'w');
     this.exited = null;

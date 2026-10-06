@@ -98,4 +98,4 @@ fuxa_wrapper/
 
 ## TwinCAT 4026 UM bağlantısı
 
-Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe geliştirilir. Gömülü editör bileşenine kurulum ve paketleme sırasında uygulanır; başka bir kaynak deposuna ihtiyaç duymaz. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
+Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe bağımsız bir eklentidir. Orijinal editör paketinin dosyaları değiştirilmez; eklenti uygulamayla birlikte gelir ve başlangıçta çevrimdışı yüklenir. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
