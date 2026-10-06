@@ -17,6 +17,7 @@ const lintmod = require('../core/lint');
 const { tagTable, tagTypesFor, isInternal, buildTag } = require('../core/tags');
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
+const { installDimensionCommit } = require('./editorDimensions');
 
 const APP_NAME = 'fuxaw';
 const POLL_MS = 1500;
@@ -211,6 +212,7 @@ body.fxw-flush .cdk-overlay-container { opacity: 0 !important; }
 const EDITOR_JS = `(() => {
   if (window.__fxw) return;
   window.__fxw = { edits: 0 };
+  (${installDimensionCommit.toString()})();
   const t = setInterval(() => {
     const c = window.svgEditor && window.svgEditor.canvas;
     if (!c || !c.undoMgr) return;
@@ -272,6 +274,7 @@ async function flushEditor() {
   const wc = editorView.webContents;
   if (!wc.getURL().includes('/editor')) return;
   const js = `(async () => {
+    window.__fxw && window.__fxw.commitDimensions && window.__fxw.commitDimensions();
     const trigger = document.querySelector('button[title="Save Project"]');
     if (!trigger) return 'no-trigger';
     document.body.classList.add('fxw-flush');
