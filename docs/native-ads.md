@@ -25,7 +25,9 @@ npm run setup:ads
 npm start -- "C:\sct\syncthing\repohf_sync\fuxa_projects\fuxaw_test_1\Simu_294_35-native.fxprj"
 ```
 
-Diğer projelerde ADS cihazının `property` nesnesine `"adsTransport": "native"` eklenir. Hedef AMS Net ID ve ADS portu korunur. Bu yöntemde Local/Router TCP alanları kullanılmaz. Uzak PLC'ler için yerel TwinCAT router'da uygun ADS rotası gerekir.
+Bağlantı yöntemi uygulamanın **Bağlantılar** sekmesinden veya **Ayarlar → Bağlantılar (Ctrl+4)** menüsünden seçilir. **Yeni ADS bağlantısı** ile ad, yöntem, hedef AMS Net ID ve ADS portu girilir. **Yerel TwinCAT** Windows x64 üzerindeki kurulu TwinCAT router'ını kullanır; **ADS / TCP** TCP router üzerinden bağlanır ve yerel AMS/router alanlarını gösterir. Yeni bağlantıda yöntem açıkça seçilmeli; etkinleştirme kutusu işaretlenene kadar cihaz devre dışıdır. **Uygula** sonrasında `.fxprj` dosyasına yazmak için **Dosya → Kaydet** kullanılır.
+
+Mevcut ADS cihazlarında **Düzenle** yöntemi değiştirir; tag'ler, cihaz kimliği ve ek özellikler korunur. `adsTransport` alanı olmayan eski cihazlar **ADS / TCP** olarak gösterilir. Yerel yöntemde Local/Router TCP alanları kullanılmaz. Uzak PLC'ler için yerel TwinCAT router'da uygun ADS rotası gerekir. Diğer protokoller **Diğer bağlantı türleri…** ile gömülü cihaz ekranında yönetilir.
 
 `npm run install:ads` geliştirme bağımlılıklarını kurar ve köprüyü hazırlar. `npm run setup:fuxa` bunu otomatik çağırır. `npm run setup:ads`, `npm run dist:dir` ve `npm run dist` yalnızca mevcut yerel bağımlılıkları kullanarak köprüyü hazırlar; editör paketine kopyalama yapmaz. Node dağıtımını ilk kez indirmek (`fetch:node`) ayrıca internet gerektirebilir.
 
@@ -59,6 +61,10 @@ ads-client 2.1.0'ın paket ayrıştırması kullanıldığından bu bağımlıl�
 ## Eklenti dönüşümünün doğrulaması (2026-10-06)
 
 37 otomatik test geçti. Orijinal 1.3.4 npm arşivi kilit dosyasındaki SHA512 ile doğrulandı; kurulu bileşenin 490 paket dosyası karşılaştırıldı ve eski ADS yaması kaldırıldı. Geliştirme ortamında ve `dist/win-unpacked` Windows paketinde bağımsız ADS eklentisi yüklendi; ayarlar, editör ve proje HTTP uçları doğrulandı. Eklenti bağımlılıkları ve hazır Windows köprüsü paket içinde bulunur. Bu dönüşüm sırasında gerçek PLC'ye yazma veya masaüstü penceresinde etkileşim testi yapılmadı.
+
+## Bağlantı arayüzünün doğrulaması
+
+Bağlantı yöntemi arayüzü için 40 otomatik test geçti. Gerçek Electron penceresindeki DOM ve IPC akışında yöntem seçimi zorunluluğu, devre dışı bir Yerel TwinCAT cihazı oluşturma ve aynı cihazı ADS / TCP'ye geçirme doğrulandı; ekran görüntüleri incelendi. Deneme Windows paketi yeniden üretildi. Bu arayüz testleri PLC'ye bağlanmadı veya değer yazmadı.
 
 ## Geri alma
 

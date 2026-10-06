@@ -49,6 +49,7 @@ function render(s) {
   $('btnRetry').hidden = f.status !== 'error';
   $('wNew').disabled = s.busy || f.status !== 'ready';
   $('wOpen').disabled = s.busy || f.status !== 'ready';
+  ['btnConnectionAdd', 'btnConnectionOther', 'btnConnectionRefresh'].forEach(id => { $(id).disabled = s.busy || !p; });
 
   $('statusText').textContent = s.busy ? 'Çalışıyor…' : (p && p.note) || (p && !p.dirty ? 'Kaydedildi' : '');
   $('statusPath').textContent = p ? (p.path || 'kaydedilmemiş proje') : '';
@@ -93,6 +94,7 @@ function showTab(tab) {
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('active', p.id === `pane-${tab}`));
   syncEditor();
   if ((tab === 'tags' || tab === 'lint') && state.project) refreshAnalysis();
+  if (tab === 'connections' && state.project) refreshConnections();
 }
 
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -273,6 +275,101 @@ async function showAddTag(prefill = {}) {
 }
 
 $('btnTagAdd').addEventListener('click', () => showAddTag());
+
+// ---------------------------------------------------------------- bağlantılar
+let connectionData = null;
+let connectionRequest = null;
+function refreshConnections() {
+  if (!connectionRequest) connectionRequest = loadConnections().finally(() => { connectionRequest = null; });
+  return connectionRequest;
+}
+async function loadConnections() {
+  connectionData = await window.fxw.connections();
+  const body = $('connectionBody');
+  body.replaceChildren();
+  if (!connectionData) return;
+  const devices = connectionData.devices.filter(d => !['FuxaServer', 'internal'].includes(d.type));
+  if (!devices.length) body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: 'Henüz bağlantı yok. Yeni ADS bağlantısı ile bağlantı yöntemini seçerek başla.' })));
+  for (const device of devices) {
+    const mode = device.property?.adsTransport || 'tcp';
+    const label = device.type === 'ADSclient'
+      ? (mode === 'native' ? 'ADS — Yerel TwinCAT' : mode === 'tcp' ? 'ADS / TCP' : 'ADS — Bilinmeyen yöntem') : device.type;
+    body.append(el('tr', {}, el('td', { text: device.name }), el('td', { text: label }),
+      el('td', { text: device.property?.address || '—' }),
+      el('td', { text: device.enabled ? 'Etkin' : 'Devre dışı' }),
+      el('td', {}, el('button', { text: 'Düzenle', onclick: () => device.type === 'ADSclient' ? showConnection(device) : window.fxw.otherConnections() }))));
+  }
+}
+
+async function showConnection(device = null) {
+  if (!state.project || modalOpen) return;
+  await refreshConnections();
+  if (!connectionData) return;
+  if (device) device = connectionData.devices.find(d => d.id === device.id);
+  const property = device?.property || {};
+  const parts = String(property.address || '').split(':');
+  const name = el('input', { id: 'acName', type: 'text', ...(device ? { readonly: '' } : {}) });
+  name.value = device?.name || '';
+  const method = el('select', { id: 'acMethod' },
+    el('option', { value: '', text: 'Bağlantı yöntemini seç…' }),
+    el('option', { value: 'native', text: 'Yerel TwinCAT (Windows x64)', ...(!connectionData.nativeAvailable ? { disabled: '' } : {}) }),
+    el('option', { value: 'tcp', text: 'ADS / TCP' }));
+  method.value = device ? property.adsTransport || 'tcp' : '';
+  const netId = el('input', { id: 'acNetId', type: 'text', placeholder: 'ör. 192.168.1.10.1.1' });
+  netId.value = parts[0] || '';
+  const port = el('input', { id: 'acPort', type: 'number', min: '1', max: '65535' });
+  port.value = parts[1] || property.port || 851;
+  const polling = el('input', { id: 'acPolling', type: 'number', min: '50', max: '3600000' });
+  polling.value = device?.polling || 1000;
+  const local = el('input', { id: 'acLocal', type: 'text', placeholder: 'ör. 192.168.1.20.1.1:32750 (isteğe bağlı)' });
+  local.value = property.local || '';
+  const router = el('input', { id: 'acRouter', type: 'text', placeholder: 'ör. 192.168.1.10:48898 (isteğe bağlı)' });
+  router.value = property.router || '';
+  const enabled = el('input', { id: 'acEnabled', type: 'checkbox' });
+  enabled.checked = device?.enabled === true;
+  const help = el('p', { id: 'acHelp', class: 'transport-help', 'aria-live': 'polite' });
+  const errors = el('ul', { class: 'form-errors', role: 'alert' });
+  const tcpFields = [el('label', { for: 'acLocal', text: 'Yerel AMS adresi' }), local,
+    el('label', { for: 'acRouter', text: 'Router adresi / TCP portu' }), router];
+  function syncMethod() {
+    errors.replaceChildren();
+    tcpFields.forEach(field => { field.hidden = method.value !== 'tcp'; });
+    help.textContent = method.value === 'native'
+      ? "Bu bilgisayarda TwinCAT ve Beckhoff ADS API'si kuruluysa seç. Yerel TwinCAT router'ı kullanılır; uzak PLC için router'da ADS rotası bulunmalı. Tag değerleri yaklaşık saniyede bir okunur."
+      : method.value === 'tcp'
+        ? "TCP üzerinden ADS bağlantısı için seç. Router adresi hedef PLC'nin IP adresidir; varsayılan TCP portu 48898'dir. Yerel AMS adresi ve hedefte uygun ADS rotası gerekebilir."
+        : 'Bu bilgisayarın kurulu TwinCAT router’ını kullanmak için Yerel TwinCAT; TCP router’a bağlanmak için ADS / TCP seç.';
+  }
+  method.addEventListener('change', syncMethod);
+  syncMethod();
+  async function apply() {
+    const buttons = [...$('modalButtons').querySelectorAll('button')];
+    buttons.forEach(button => { button.disabled = true; });
+    errors.replaceChildren();
+    try {
+      const result = await window.fxw.saveConnection({ id: device?.id, name: name.value, transport: method.value,
+        netId: netId.value, port: port.value, polling: polling.value, local: local.value, router: router.value, enabled: enabled.checked });
+      if (!result) { errors.append(el('li', { text: 'Bağlantı uygulanamadı.' })); return; }
+      if (result.errors) { errors.replaceChildren(...result.errors.map(text => el('li', { text }))); return; }
+      closeModal();
+      await refreshConnections();
+    } catch (error) { errors.append(el('li', { text: error.message })); }
+    finally { buttons.forEach(button => { button.disabled = false; }); }
+  }
+  openModal(device ? 'ADS bağlantısını düzenle' : 'Yeni ADS bağlantısı', [
+    el('div', { class: 'form' }, el('label', { for: 'acName', text: 'Bağlantı adı' }), name,
+      el('label', { for: 'acMethod', text: 'Bağlantı yöntemi' }), method,
+      el('label', { for: 'acNetId', text: 'Hedef AMS Net ID' }), netId,
+      el('label', { for: 'acPort', text: 'Hedef ADS portu' }), port,
+      el('label', { for: 'acPolling', text: 'Okuma aralığı (ms)' }), polling,
+      ...tcpFields, el('label', { for: 'acEnabled', text: 'Bağlantıyı etkinleştir' }), enabled),
+    help, errors, el('p', { class: 'muted small', text: 'Uygula cihaz ayarını değiştirir; etkin cihaz yeniden bağlanır. Proje dosyasına yazmak için Dosya → Kaydet kullan.' }),
+  ], [{ label: 'İptal', onclick: closeModal }, { label: 'Uygula', primary: true, onclick: apply }]);
+  name.focus();
+}
+$('btnConnectionAdd').addEventListener('click', () => showConnection());
+$('btnConnectionRefresh').addEventListener('click', refreshConnections);
+$('btnConnectionOther').addEventListener('click', () => window.fxw.otherConnections());
 
 // ---------------------------------------------------------------- modal
 function openModal(title, bodyNodes, buttons) {

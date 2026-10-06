@@ -84,7 +84,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
   - Bekleyen düzenlemeler, svg-edit'in `undoMgr.addCommandToHistory`'sine bağlanan sayaçla (`window.__fxw.edits`) izlenir.
   - Kaydet'ten önce gizli menüdeki "Save Project" programla tıklanır (`flushEditor`; menü katmanı o an `opacity: 0`).
   - FUXA sürümü değişirse bu seçiciler (`button[title="Save Project"]`, `.mat-mdc-menu-item`, `svgEditor.canvas.undoMgr`) kontrol edilmeli.
-- **Ayarlar** menüsü (Ctrl+4 / Ctrl+5) aynı görünümde FUXA'nın `/device` (Connections settings) ve `/plugins` (Server Plugins) sayfalarını açar (`main.js` → `showEditorPage`). `/editor`'dan ayrılmadan önce `flushEditor` çalışır (bekleyen çizimler kaybolmasın). Proje → Editör (Ctrl+1) görünüm başka sayfadaysa `/editor`'a geri yükler.
+- **Ayarlar → Bağlantılar** (Ctrl+4) uygulamanın Bağlantılar sekmesini açar. ADS cihazları burada Yerel TwinCAT / ADS-TCP yöntemi seçilerek eklenir veya düzenlenir. `core/connections.js` doğrulama ve tag/kimlik koruma; `main.js` flush → GET → set-device → editörü yeniden yükleme akışını yönetir. Diğer bağlantı türleri aynı sekmedeki düğmeyle gömülü `/device` sayfasına gider. Ctrl+5 `/plugins` sayfasını açar (`main.js` → `showEditorPage`). `/editor`'dan ayrılmadan önce `flushEditor` çalışır. Proje → Editör (Ctrl+1) görünüm başka sayfadaysa `/editor`'a geri yükler.
 - Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
 - Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
 

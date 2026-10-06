@@ -127,5 +127,8 @@ table.grid { width: 100%; border-collapse: collapse; }
 .form { display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px; align-items: center; margin: 4px 0 8px; }
 .form label { color: var(--muted); }
 .form input, .form select { width: 100%; }
+.form input[type=checkbox] { width: auto; justify-self: start; }
 .form-errors { margin: 0; padding-left: 18px; color: var(--err); }
 .form-errors:empty { display: none; }
+.connection-help { margin: 0; padding: 12px; color: var(--muted); border-bottom: 1px solid var(--line); line-height: 1.5; }
+.transport-help { padding: 10px 12px; background: var(--panel-2); border-radius: 4px; line-height: 1.5; }

@@ -11,6 +11,7 @@
     <div id="tabs" class="tab-buttons">
       <button data-tab="editor" class="active">Editör</button>
       <button data-tab="tags">Taglar</button>
+      <button data-tab="connections">Bağlantılar</button>
       <button data-tab="lint">Kontrol <span id="lintBadge" class="badge" hidden></span></button>
     </div>
     <div class="spacer"></div>
@@ -41,6 +42,22 @@
         </table>
       </div>
       <div id="tagUses" class="uses" hidden></div>
+    </section>
+
+    <section id="pane-connections" class="pane">
+      <div class="pane-bar">
+        <b>Cihaz bağlantıları</b><div class="spacer"></div>
+        <button id="btnConnectionAdd" class="primary">Yeni ADS bağlantısı</button>
+        <button id="btnConnectionOther">Diğer bağlantı türleri…</button>
+        <button id="btnConnectionRefresh">Yenile</button>
+      </div>
+      <p class="connection-help">Yerel TwinCAT: bu bilgisayarın TwinCAT router'ını kullanır. ADS / TCP: TCP router'a bağlanır. ADS cihazının yöntemini Düzenle ile seç.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Ad</th><th>Tür / yöntem</th><th>Hedef adres</th><th>Etkinlik</th><th></th></tr></thead>
+          <tbody id="connectionBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section id="pane-lint" class="pane">

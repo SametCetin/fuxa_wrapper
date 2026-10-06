@@ -16,6 +16,7 @@ const model = require('../core/model');
 const lintmod = require('../core/lint');
 const { tagTable, tagTypesFor, isInternal, buildTag } = require('../core/tags');
 const publisher = require('../core/publish');
+const { buildAdsDevice } = require('../core/connections');
 
 const APP_NAME = 'fuxaw';
 const POLL_MS = 1500;
@@ -451,6 +452,26 @@ async function addTag(spec) {
   return { ok: true, tag: res.tag, analysis: await analyze() };
 }
 
+async function connections() {
+  if (!cur.doc) return null;
+  await flushEditor();
+  const project = await api.getProject(requireFuxa());
+  return { devices: Object.values(project.devices || {}), nativeAvailable: process.platform === 'win32' && process.arch === 'x64' };
+}
+
+async function saveConnection(spec) {
+  if (!cur.doc || !spec || typeof spec !== 'object') return null;
+  const url = requireFuxa();
+  await flushEditor();
+  const project = await api.getProject(url);
+  const result = buildAdsDevice(project.devices || {}, spec);
+  if (result.errors) return result;
+  await api.projectData(url, 'set-device', result.device);
+  await loadEditor();
+  await poll();
+  return { ok: true };
+}
+
 // Publish: kaydedilmiş hali yazar. Kaydedilmemiş değişiklik varsa önce kaydetmek gerekir.
 async function publishPrepare() {
   if (!cur.doc) return null;
@@ -559,7 +580,7 @@ function buildMenu() {
     {
       label: 'Ayarlar',
       submenu: [
-        { label: 'Bağlantılar (cihazlar)…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
+        { label: 'Bağlantılar (cihazlar)…', accelerator: 'CmdOrCtrl+4', click: send('tab:connections') },
         { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
       ],
     },
@@ -609,6 +630,9 @@ function registerIpc() {
   handle('save-as', guard(() => saveProject(true)));
   handle('analyze', guard(analyze));
   handle('tag:add', guard(addTag));
+  handle('connections:list', guard(connections));
+  handle('connections:save', guard(saveConnection));
+  handle('connections:other', guard(() => showEditorPage('device')));
   handle('publish:prepare', guard(publishPrepare));
   handle('publish:choose-dir', guard(publishChooseDir));
   handle('publish:run', guard(publishRun));
