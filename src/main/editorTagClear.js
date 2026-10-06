@@ -22,6 +22,11 @@ function installEditorTagClear(engineDir, transform = source => source) {
     const fallback = originalStatic.call(this, root, ...args);
     if (path.resolve(root) !== path.resolve(dist)) return fallback;
     return (req, res, next) => {
+      // The client router supports scripts, but engine 1.3.4 omits its direct
+      // HTML route. Serve the unchanged SPA shell for the wrapper shortcut.
+      if ((req.method === 'GET' || req.method === 'HEAD') && req.path === '/scripts') {
+        return res.sendFile(path.join(dist, 'index.html'));
+      }
       if ((req.method === 'GET' || req.method === 'HEAD') && req.path === '/' + bundles[0]) {
         return res.type('application/javascript').set('Cache-Control', 'no-store').send(patched);
       }

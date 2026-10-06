@@ -73,25 +73,26 @@ function renderRecent(list) {
 
 // ---------------------------------------------------------------- gömülü editör (ana süreçte ayrı görünüm)
 function syncEditor() {
-  const visible = !!state.project && ['editor', 'connections', 'tags'].includes(activeTab) && !modalOpen;
+  const visible = !!state.project && ['editor', 'connections', 'tags', 'scripts'].includes(activeTab) && !modalOpen;
   window.fxw.editorVisible(visible);
   if (visible) sendBounds();
 }
 
 function sendBounds() {
-  const r = $(activeTab === 'tags' ? 'tagsHost' : activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
+  const r = $(activeTab === 'scripts' ? 'scriptsHost' : activeTab === 'tags' ? 'tagsHost' : activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
   window.fxw.editorBounds({ x: r.left, y: r.top, width: r.width, height: r.height });
 }
 
-const hostObserver = new ResizeObserver(() => { if (['editor', 'connections', 'tags'].includes(activeTab)) sendBounds(); });
+const hostObserver = new ResizeObserver(() => { if (['editor', 'connections', 'tags', 'scripts'].includes(activeTab)) sendBounds(); });
 hostObserver.observe($('editorHost'));
 hostObserver.observe($('connectionsHost'));
 hostObserver.observe($('tagsHost'));
-window.addEventListener('resize', () => { if (['editor', 'connections', 'tags'].includes(activeTab)) sendBounds(); });
+hostObserver.observe($('scriptsHost'));
+window.addEventListener('resize', () => { if (['editor', 'connections', 'tags', 'scripts'].includes(activeTab)) sendBounds(); });
 
 // ---------------------------------------------------------------- sekmeler
 function showTab(tab, navigate = true) {
-  if (navigate && state.project && ['editor', 'connections', 'tags'].includes(tab)) {
+  if (navigate && state.project && ['editor', 'connections', 'tags', 'scripts'].includes(tab)) {
     window.fxw.editorPage(tab === 'connections' ? 'device' : tab);
     return;
   }

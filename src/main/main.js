@@ -553,7 +553,7 @@ async function showEditorPage(page) {
     lastTagDevice = await wc.executeJavaScript(`(${readDeviceSelection.toString()})()`) || lastTagDevice;
   }
   const route = page === 'tags' ? 'device' : page;
-  win.webContents.send('show-tab', page === 'tags' ? 'tags' : page === 'device' ? 'connections' : 'editor');
+  win.webContents.send('show-tab', page === 'tags' ? 'tags' : page === 'device' ? 'connections' : page === 'scripts' ? 'scripts' : 'editor');
   if (url.includes('/editor')) await flushEditor(); // ayrılmadan bekleyen çizimleri sunucuya aktar
   if (!url.startsWith(`${fuxaState.url}/${route}`)) await wc.loadURL(`${fuxaState.url}/${route}`);
   if (route === 'device') {
@@ -614,6 +614,7 @@ function buildMenu() {
         { label: 'Editör', accelerator: 'CmdOrCtrl+1', click: run(() => showEditorPage('editor')) },
         { label: 'Taglar', accelerator: 'CmdOrCtrl+2', click: run(() => showEditorPage('tags')) },
         { label: 'Kontrol (lint)', accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
+        { label: 'Scriptler', accelerator: 'CmdOrCtrl+6', click: run(() => showEditorPage('scripts')) },
         { type: 'separator' },
         { label: 'Runtime\'ı aç (önizleme)', accelerator: 'F5', click: openRuntime },
         { label: 'Editörü yenile', click: () => cur.doc && loadEditor() },
@@ -676,7 +677,7 @@ function registerIpc() {
   handle('connections:list', guard(connections));
   handle('connections:save', guard(saveConnection));
   handle('connections:other', guard(() => showEditorPage('device')));
-  handle('editor:page', guard((page) => ['editor', 'device', 'tags'].includes(page) && showEditorPage(page)));
+  handle('editor:page', guard((page) => ['editor', 'device', 'tags', 'scripts'].includes(page) && showEditorPage(page)));
   handle('publish:prepare', guard(publishPrepare));
   handle('publish:choose-dir', guard(publishChooseDir));
   handle('publish:run', guard(publishRun));

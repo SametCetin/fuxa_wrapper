@@ -76,7 +76,7 @@ input[type=search] { width: 260px; }
 main { position: relative; min-height: 0; }
 .pane { position: absolute; inset: 0; display: none; flex-direction: column; min-height: 0; }
 .pane.active { display: flex; }
-#editorHost, #connectionsHost, #tagsHost { flex: 1; position: relative; min-height: 0; }
+#editorHost, #connectionsHost, #tagsHost, #scriptsHost { flex: 1; position: relative; min-height: 0; }
 .control-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 

@@ -16,6 +16,7 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
+| Proje → Scriptler (Ctrl+6) | Gömülü script yönetimini doğrudan açar |
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
 | Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
 | Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
@@ -28,6 +29,7 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 
 - **Editör:** FUXA editörü (ekranlar, cihazlar, tag'ler, script'ler). Editörün kendi ☰ proje menüsü gizlidir; kaydetme/açma uygulamanın Dosya menüsünden yapılır.
 - **Taglar:** doğrudan gömülü editörün tag tablosu; ekleme, düzenleme, silme, arama, canlı değer ve zaman damgası. İlk girişte ilk PLC/harici cihaz, yoksa sunucu içi cihaz açılır. Son seçilen bağlantı aynı proje açıkken hatırlanır; yeni/açılan projede sıfırlanır. Değişiklikleri `.fxprj` dosyasına yazmak için Dosya → Kaydet kullan.
+- **Scriptler:** Kontrol sekmesinin yanından veya Ctrl+6 ile doğrudan script yönetimine geç.
 - **Kontrol → Proje kontrolü:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
 - **Kontrol → Tag kullanımları:** tüm tag'lerde arama, cihaz ve kullanılmayanlar filtresi. Kullanım sayısı ekran öğesi, event ve script referanslarını gösterir. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
 - **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Yeni bağlantıda **Type → ADS (fuxaw)** seç; aynı penceredeki **Bağlantı yöntemi** alanında **Yerel TwinCAT (Windows)** veya **ADS-TCP** kullan. **ADSclient (orijinal)** özgün `ads-client` sürücüsünü, **ADS (fuxaw)** ayrı `@fuxaw/ads-plugin` sürücüsünü kullanır. İki eklenti Sunucu eklentileri sayfasında ayrı görünür. Bizim eklenti bu sayfadan çevrimdışı kaldırılıp yeniden kurulabilir; seçim uygulama yeniden başlatılınca korunur. Editör sekmesi çizim ekranına döner.
