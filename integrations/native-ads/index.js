@@ -12,7 +12,8 @@ function install(engineRoot, { requireModule = require } = {}) {
     }
     const plugins = requireModule(path.join(engineRoot, 'runtime/plugins'));
     const devices = requireModule(path.join(engineRoot, 'runtime/devices/device'));
-    if (typeof plugins.init !== 'function' || typeof devices.loadPlugin !== 'function') {
+    if (['init', 'getPlugins', 'getPlugin', 'addPlugin', 'removePlugin'].some(key => typeof plugins[key] !== 'function') ||
+        typeof devices.loadPlugin !== 'function') {
         throw new Error('Editör bileşeninin ADS eklenti yükleyicisi uyumlu değil.');
     }
     if (installed.has(plugins)) return;
@@ -27,22 +28,43 @@ function install(engineRoot, { requireModule = require } = {}) {
     require('./driver-entry').configure(driver);
     const initialize = plugins.init;
     const register = () => devices.loadPlugin(manifest.fuxawPlugin.type, driverPath);
+    const descriptor = () => ({ name: manifest.name, module: driverPath,
+        type: manifest.fuxawPlugin.type, version: manifest.version, current: manifest.version,
+        group: 'connection-device', dinamic: false, canRemove: false, bundled: true,
+        description: 'Uygulamayla gelen ADS sürücüsü · Yerel TwinCAT / ADS-TCP' });
+    const isBundled = plugin => [manifest.name, 'ads-client'].includes(
+        typeof plugin === 'string' ? plugin : plugin?.name) || plugin?.type === manifest.fuxawPlugin.type;
+    const list = plugins.getPlugins;
+    if (typeof list === 'function') plugins.getPlugins = async function (...args) {
+        const result = await list.apply(this, args);
+        return [...result.filter(p => p.type !== manifest.fuxawPlugin.type), descriptor()];
+    };
+    const get = plugins.getPlugin;
+    if (typeof get === 'function') plugins.getPlugin = function (type) {
+        return type === manifest.fuxawPlugin.type ? descriptor() : get.call(this, type);
+    };
     plugins.init = async function (...args) {
         const result = await initialize.apply(this, args);
         await register();
         args[1]?.info('ADS eklentisi çevrimdışı yüklendi.');
         return result;
     };
-    // Installing a built-in ADS dependency from the settings page can reload its
-    // default driver. Keep the bundled driver selected after that operation too.
+    // Other plugin installs may reload defaults; always restore our ADS driver.
+    // The bundled package/dependency itself is managed by application updates.
     if (typeof plugins.addPlugin === 'function') {
         const add = plugins.addPlugin;
         plugins.addPlugin = async function (...args) {
+            if (isBundled(args[0])) return descriptor();
             const result = await add.apply(this, args);
             await register();
             return result;
         };
     }
+    const remove = plugins.removePlugin;
+    if (typeof remove === 'function') plugins.removePlugin = function (...args) {
+        if (isBundled(args[0])) return Promise.reject(new Error('Uygulamayla gelen ADS sürücüsü kaldırılamaz.'));
+        return remove.apply(this, args);
+    };
     installed.add(plugins);
 }
 

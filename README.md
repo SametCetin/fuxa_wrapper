@@ -18,8 +18,7 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
 | Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
-| Ayarlar → ADS bağlantı ayarları… | Yerel TwinCAT / ADS-TCP bağlantı yöntemi ve ayarları |
-| Ayarlar → Sunucu eklentileri… (Ctrl+5) | Editörün sunucu eklentileri sayfası (ör. `ads-client`); Ctrl+1 çizim editörüne döner |
+| Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
 
@@ -31,11 +30,11 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 - **Taglar:** doğrudan gömülü editörün tag tablosu; ekleme, düzenleme, silme, arama, canlı değer ve zaman damgası. İlk girişte ilk PLC/harici cihaz, yoksa sunucu içi cihaz açılır. Son seçilen bağlantı aynı proje açıkken hatırlanır; yeni/açılan projede sıfırlanır. Değişiklikleri `.fxprj` dosyasına yazmak için Dosya → Kaydet kullan.
 - **Kontrol → Proje kontrolü:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
 - **Kontrol → Tag kullanımları:** tüm tag'lerde arama, cihaz ve kullanılmayanlar filtresi. Kullanım sayısı ekran öğesi, event ve script referanslarını gösterir. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
-- **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Üstteki **ADS ayarları…** Yerel TwinCAT / ADS-TCP için ek ayarları açar; ayrı üst sekme yoktur. Editör sekmesi çizim ekranına döner.
+- **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Yeni bağlantıda **Type → ADS (fuxaw)** seç; aynı penceredeki **Bağlantı yöntemi** alanında **Yerel TwinCAT (Windows)** veya **ADS-TCP** kullan. Tüm ADS bağlantılarını uygulamayla gelen eklenti yönetir; `ads-client` onun kullandığı kütüphanedir. Editör sekmesi çizim ekranına döner.
 
 ### ADS okuma aralığı
 
-Bağlantılar → ADS ayarları… → ADS cihazı → Düzenle → **Okuma aralığı (ms)** alanını örneğin `100` yapıp Uygula'ya bas. Bu değer hem ADS / TCP aboneliğinin örnekleme süresini hem Yerel TwinCAT okuma süresini belirler; arayüze aktarım döngüsü de aynı cihaz ayarını kullanır. Uygula cihazı yeniden bağlar; Dosya → Kaydet ayarı `.fxprj`'e yazar.
+Bağlantılar → ADS cihazının kalem simgesi → **Polling** alanını örneğin `100 ms` yapıp **OK**'e bas. Bu değer hem ADS / TCP aboneliğinin örnekleme süresini hem Yerel TwinCAT okuma süresini belirler; arayüze aktarım döngüsü de aynı cihaz ayarını kullanır. **OK** cihazı yeniden bağlar; Dosya → Kaydet ayarı `.fxprj`'e yazar.
 
 Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüsünü ayarlar; ADS cihazının süresini değiştirmez. Yerel TwinCAT okumalarında işlem süresi seçilen aralığa eklenir; 100 ms kesin zaman garantisi değildir. Bu düzeltme uygulamayla gelen ADS eklentisindedir; Publish ile JSON aktarılan bağımsız sunucunun sürücüsünü değiştirmez.
 

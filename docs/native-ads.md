@@ -12,9 +12,9 @@ TwinCAT 4026 UM kurulumunda aynı hosttaki PLC'ye erişmek için Windows x64 yer
 - `integrations/native-ads/prepare.js`: köprüyü derler; editör paketine yazmaz.
 - `integrations/native-ads/probe.js`: PLC'ye değer yazmadan proje tag'lerini ve sembolleri okur.
 
-Editör bileşeni sürümü 1.3.4 olarak sabittir ve orijinal npm paketinden çalışır. Başlatıcı, eklentiyi ayrı klasörden yükler. Bileşenin varsayılan eklentileri hazır olduğunda mevcut `loadPlugin('ADSclient', modulePath)` noktası üzerinden sürücüyü kaydeder. Bunun için yalnızca çalışan süreçte `plugins.init` çevresine bir adaptör eklenir; disk üzerindeki bileşen dosyaları değiştirilmez. Bu adaptör sürüme bağımlıdır ve doğrulanmamış sürümde başlangıcı reddeder.
+Editör bileşeni sürümü 1.3.4 olarak sabittir ve orijinal npm paketinden çalışır. Başlatıcı, eklentiyi ayrı klasörden yükler. Bileşenin varsayılan eklentileri hazır olduğunda mevcut `loadPlugin('ADSclient', modulePath)` noktası üzerinden sürücüyü kaydeder. Bunun için yalnızca çalışan süreçte eklenti başlatma ve kayıt/liste/kurma/kaldırma işlemlerine bir adaptör eklenir; disk üzerindeki bileşen dosyaları değiştirilmez. Bu adaptör sürüme bağımlıdır ve doğrulanmamış sürümde başlangıcı reddeder.
 
-`ads-client` 2.1.0 ve tüm bağımlılıkları eklentinin kendi `node_modules` klasöründedir. Kurulum paketinde `resources/plugins/native-ads` altında bulunur. Kullanıcının eklentiyi indirmesi veya npm çalıştırması gerekmez. Bu eklenti masaüstü uygulamasının başlatıcısı tarafından yönetilir; bileşenin Plugins ekranındaki indirilebilir paket kataloğuna eklenmez. Yeni bir eklenti güncellemesi için uygulama yeniden paketlenir.
+`ads-client` 2.1.0 ve tüm bağımlılıkları eklentinin kendi `node_modules` klasöründedir. Kurulum paketinde `resources/plugins/native-ads` altında bulunur. Kullanıcının eklentiyi indirmesi veya npm çalıştırması gerekmez. Bu eklenti masaüstü uygulamasının başlatıcısı tarafından yönetilir. Plugins ekranında `@fuxaw/ads-plugin` olarak kurulu görünür; kur/kaldır düğmeleri devre dışıdır. `ads-client` ayrı bir sürücü seçeneği olarak gösterilmez; bu eklentinin kütüphanesidir. Yeni bir eklenti güncellemesi için uygulama yeniden paketlenir.
 
 ## Çalıştırma
 
@@ -25,9 +25,9 @@ npm run setup:ads
 npm start -- "C:\sct\syncthing\repohf_sync\fuxa_projects\fuxaw_test_1\Simu_294_35-native.fxprj"
 ```
 
-Bağlantı yöntemi uygulamanın **Bağlantılar** sekmesinden veya **Ayarlar → Bağlantılar (Ctrl+4)** menüsünden seçilir. **Yeni ADS bağlantısı** ile ad, yöntem, hedef AMS Net ID ve ADS portu girilir. **Yerel TwinCAT** Windows x64 üzerindeki kurulu TwinCAT router'ını kullanır; **ADS / TCP** TCP router üzerinden bağlanır ve yerel AMS/router alanlarını gösterir. Yeni bağlantıda yöntem açıkça seçilmeli; etkinleştirme kutusu işaretlenene kadar cihaz devre dışıdır. **Uygula** sonrasında `.fxprj` dosyasına yazmak için **Dosya → Kaydet** kullanılır.
+Bağlantılar veya Ayarlar → Bağlantılar (Ctrl+4) üzerinden özgün cihaz şemasını aç. + → Type → **ADS (fuxaw)** seç. Aynı penceredeki **Bağlantı yöntemi** alanı **Yerel TwinCAT (Windows)** veya **ADS-TCP** seçimini sunar. Hedef adresi **AMS Net ID:port** biçiminde gir. Yerel yöntem Windows x64 üzerindeki kurulu TwinCAT routerını kullanır; TCP yönteminde Local/Router alanları görünür. **OK** sonrasında Dosya → Kaydet `.fxprj` dosyasını günceller.
 
-Mevcut ADS cihazlarında **Düzenle** yöntemi değiştirir; tag'ler, cihaz kimliği ve ek özellikler korunur. `adsTransport` alanı olmayan eski cihazlar **ADS / TCP** olarak gösterilir. Yerel yöntemde Local/Router TCP alanları kullanılmaz. Uzak PLC'ler için yerel TwinCAT router'da uygun ADS rotası gerekir. Diğer protokoller **Diğer bağlantı türleri…** ile gömülü cihaz ekranında yönetilir.
+Mevcut ADS cihazlarında **Düzenle** yöntemi değiştirir; tag'ler, cihaz kimliği ve ek özellikler korunur. `adsTransport` alanı olmayan eski cihazlar **ADS / TCP** olarak gösterilir. Yerel yöntemde Local/Router TCP alanları kullanılmaz. Uzak PLC'ler için yerel TwinCAT router'da uygun ADS rotası gerekir. Diğer protokoller aynı standart bağlantı penceresinden seçilir.
 
 `npm run install:ads` geliştirme bağımlılıklarını kurar ve köprüyü hazırlar. `npm run setup:fuxa` bunu otomatik çağırır. `npm run setup:ads`, `npm run dist:dir` ve `npm run dist` yalnızca mevcut yerel bağımlılıkları kullanarak köprüyü hazırlar; editör paketine kopyalama yapmaz. Node dağıtımını ilk kez indirmek (`fetch:node`) ayrıca internet gerektirebilir.
 

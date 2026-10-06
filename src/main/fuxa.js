@@ -101,7 +101,7 @@ function writeBoot(userDir, pluginPath) {
     '  setInterval(() => { try { process.kill(parent, 0); } catch { process.exit(0); } }, 2000).unref();',
     '}',
     'const main = process.argv[2];',
-    `const restoreStatic = (${installEditorTagClear.toString()})(require('node:path').dirname(main));`,
+    `const restoreStatic = (${installEditorTagClear.toString()})(require('node:path').dirname(main), require(${JSON.stringify(path.join(pluginPath, 'editor.js'))}).patchEditor);`,
     `require(${JSON.stringify(pluginPath)}).install(require('node:path').dirname(main));`,
     'process.argv.splice(1, 1); // FUXA argümanları argv[2]\'den okur: [node, main.js, --port, ...]',
     'require(main);',

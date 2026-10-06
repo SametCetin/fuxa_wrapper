@@ -1,7 +1,7 @@
 'use strict';
 
 /** Gömülü editöre servis edilen kopyayı düzeltir; paket dosyalarını değiştirmez. */
-function installEditorTagClear(engineDir) {
+function installEditorTagClear(engineDir, transform = source => source) {
   const fs = require('node:fs');
   const path = require('node:path');
   const engineRequire = require('node:module').createRequire(path.join(engineDir, 'main.js'));
@@ -14,8 +14,8 @@ function installEditorTagClear(engineDir) {
   const needle = 'onChanged(){if(this.tagFilter.value?.startsWith';
   if (source.split(needle).length !== 3) throw new Error('Editör tag seçicisi değişmiş; düzeltme doğrulanmalı.');
   // Her iki tag seçicisinde de boş arama metni eski variableId'yi koruyordu.
-  const patched = source.replaceAll(needle,
-    'onChanged(){if(typeof this.tagFilter.value==="string"&&!this.tagFilter.value.trim())this.variableId=null;if(this.tagFilter.value?.startsWith');
+  const patched = transform(source.replaceAll(needle,
+    'onChanged(){if(typeof this.tagFilter.value==="string"&&!this.tagFilter.value.trim())this.variableId=null;if(this.tagFilter.value?.startsWith'));
   const express = engineRequire('express');
   const originalStatic = express.static;
   express.static = function (root, ...args) {

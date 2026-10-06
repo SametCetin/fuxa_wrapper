@@ -623,7 +623,6 @@ function buildMenu() {
       label: 'Ayarlar',
       submenu: [
         { label: 'Bağlantılar ve tag yönetimi…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
-        { label: 'ADS bağlantı ayarları…', click: send('tab:ads') },
         { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
       ],
     },
