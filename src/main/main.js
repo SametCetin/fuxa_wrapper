@@ -18,6 +18,7 @@ const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = requi
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
 const { installDimensionCommit } = require('./editorDimensions');
+const { readDeviceSelection, openDevicePage } = require('./editorDevices');
 
 const APP_NAME = 'fuxaw';
 const POLL_MS = 1500;
@@ -32,6 +33,7 @@ let fuxa = null;
 let fuxaState = { status: 'starting', url: null, error: null };
 let pendingOpen = null; // FUXA hazır olmadan istenen dosya
 let busy = false;
+let lastTagDevice = null;
 
 // Açık proje
 const cur = {
@@ -328,6 +330,7 @@ async function poll() {
 
 // ---------------------------------------------------------------- proje işlemleri
 async function loadDoc(doc, filePath, note) {
+  lastTagDevice = null;
   const url = requireFuxa();
   await api.setProject(url, doc.project);
   const loaded = await api.getProject(url);
@@ -544,11 +547,25 @@ async function publishRun() {
 /** Gömülü sayfayı aç; cihaz yönetimi kendi Bağlantılar sekmesinde gösterilir. */
 async function showEditorPage(page) {
   if (!cur.doc || fuxaState.status !== 'ready' || !editorView) return;
-  win.webContents.send('show-tab', page === 'device' ? 'connections' : 'editor');
-  const url = editorView.webContents.getURL();
-  if (url.startsWith(`${fuxaState.url}/${page}`)) return;
+  const wc = editorView.webContents;
+  const url = wc.getURL();
+  if (url.startsWith(`${fuxaState.url}/device`)) {
+    lastTagDevice = await wc.executeJavaScript(`(${readDeviceSelection.toString()})()`) || lastTagDevice;
+  }
+  const route = page === 'tags' ? 'device' : page;
+  win.webContents.send('show-tab', page === 'tags' ? 'tags' : page === 'device' ? 'connections' : 'editor');
   if (url.includes('/editor')) await flushEditor(); // ayrılmadan bekleyen çizimleri sunucuya aktar
-  await editorView.webContents.loadURL(`${fuxaState.url}/${page}`).catch(() => {});
+  if (!url.startsWith(`${fuxaState.url}/${route}`)) await wc.loadURL(`${fuxaState.url}/${route}`);
+  if (route === 'device') {
+    if (page === 'tags') {
+      const project = await api.getProject(requireFuxa());
+      const devices = [...Object.values(project.devices || {}), ...(project.server ? [project.server] : [])];
+      if (!devices.some(d => d.name === lastTagDevice)) {
+        lastTagDevice = (devices.find(d => !isInternal(d.type)) || devices[0])?.name || null;
+      }
+    }
+    await wc.executeJavaScript(`(${openDevicePage.toString()})(${page === 'tags'}, ${JSON.stringify(lastTagDevice)})`);
+  }
 }
 
 function openRuntime() {
@@ -595,7 +612,7 @@ function buildMenu() {
       label: 'Proje',
       submenu: [
         { label: 'Editör', accelerator: 'CmdOrCtrl+1', click: run(() => showEditorPage('editor')) },
-        { label: 'Taglar', accelerator: 'CmdOrCtrl+2', click: send('tab:tags') },
+        { label: 'Taglar', accelerator: 'CmdOrCtrl+2', click: run(() => showEditorPage('tags')) },
         { label: 'Kontrol (lint)', accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
         { type: 'separator' },
         { label: 'Runtime\'ı aç (önizleme)', accelerator: 'F5', click: openRuntime },
@@ -660,7 +677,7 @@ function registerIpc() {
   handle('connections:list', guard(connections));
   handle('connections:save', guard(saveConnection));
   handle('connections:other', guard(() => showEditorPage('device')));
-  handle('editor:page', guard((page) => ['editor', 'device'].includes(page) && showEditorPage(page)));
+  handle('editor:page', guard((page) => ['editor', 'device', 'tags'].includes(page) && showEditorPage(page)));
   handle('publish:prepare', guard(publishPrepare));
   handle('publish:choose-dir', guard(publishChooseDir));
   handle('publish:run', guard(publishRun));

@@ -12,7 +12,6 @@
       <button data-tab="editor" class="active">Editör</button>
       <button data-tab="tags">Taglar</button>
       <button data-tab="connections">Bağlantılar</button>
-      <button data-tab="ads">ADS ayarları</button>
       <button data-tab="lint">Kontrol <span id="lintBadge" class="badge" hidden></span></button>
     </div>
     <div class="spacer"></div>
@@ -26,35 +25,19 @@
     </section>
 
     <section id="pane-tags" class="pane">
-      <div class="pane-bar">
-        <input id="tagFilter" type="search" placeholder="Ara: ad, adres, cihaz…">
-        <select id="tagDevice"><option value="">Tüm cihazlar</option></select>
-        <label class="check"><input type="checkbox" id="tagUnused"> Kullanılmayanlar</label>
-        <div class="spacer"></div>
-        <span id="tagCount" class="muted"></span>
-        <button id="btnTagAdd" class="primary">Yeni tag</button>
-        <button id="btnTagManage">Tagları düzenle…</button>
-        <button id="btnTagCopy" title="Görünen satırları Excel'e yapıştırılabilir biçimde kopyala">Kopyala</button>
-        <button id="btnTagRefresh">Yenile</button>
-      </div>
-      <div class="table-wrap">
-        <table class="grid">
-          <thead><tr><th>Ad</th><th>Tip</th><th>Adres</th><th>Cihaz</th><th class="num">Kullanım</th><th>İşlem</th></tr></thead>
-          <tbody id="tagBody"></tbody>
-        </table>
-      </div>
-      <div id="tagUses" class="uses" hidden></div>
+      <div id="tagsHost"><div class="placeholder">Taglar yükleniyor…</div></div>
     </section>
 
     <section id="pane-connections" class="pane">
+      <div class="pane-bar"><b>Bağlantılar</b><div class="spacer"></div><button id="btnAdsSettings">ADS ayarları…</button></div>
       <div id="connectionsHost"><div class="placeholder">Bağlantı ve tag yönetimi yükleniyor…</div></div>
     </section>
 
     <section id="pane-ads" class="pane">
       <div class="pane-bar">
-        <b>Cihaz bağlantıları</b><div class="spacer"></div>
+        <b>ADS ayarları</b><div class="spacer"></div>
         <button id="btnConnectionAdd" class="primary">Yeni ADS bağlantısı</button>
-        <button id="btnConnectionOther">Bağlantı ve tag yönetimi…</button>
+        <button id="btnConnectionOther">Bağlantılara dön</button>
         <button id="btnConnectionRefresh">Yenile</button>
       </div>
       <p class="connection-help">Yerel TwinCAT: bu bilgisayarın TwinCAT router'ını kullanır. ADS / TCP: TCP router'a bağlanır. ADS cihazının yöntemini Düzenle ile seç.</p>
@@ -67,6 +50,11 @@
     </section>
 
     <section id="pane-lint" class="pane">
+      <div class="pane-bar control-tabs">
+        <button data-control="lint" class="primary" aria-pressed="true">Proje kontrolü</button>
+        <button data-control="tags" aria-pressed="false">Tag kullanımları</button>
+      </div>
+      <div id="control-lint" class="control-panel">
       <div class="pane-bar">
         <span class="muted">Bilinen editör tuzakları ve kırık tag/script referansları. HATA varsa publish yapılmaz.</span>
         <div class="spacer"></div>
@@ -78,6 +66,26 @@
           <tbody id="lintBody"></tbody>
         </table>
       </div>
+      </div>
+    <div id="control-tags" class="control-panel" hidden>
+      <div class="pane-bar">
+        <input id="tagFilter" type="search" placeholder="Ara: ad, adres, cihaz…">
+        <select id="tagDevice"><option value="">Tüm cihazlar</option></select>
+        <label class="check"><input type="checkbox" id="tagUnused"> Kullanılmayanlar</label>
+        <div class="spacer"></div>
+        <span id="tagCount" class="muted"></span>
+        <button id="btnTagCopy" title="Görünen satırları Excel'e yapıştırılabilir biçimde kopyala">Kopyala</button>
+        <button id="btnTagRefresh">Yenile</button>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Ad</th><th>Tip</th><th>Adres</th><th>Cihaz</th><th class="num">Kullanım</th></tr></thead>
+          <tbody id="tagBody"></tbody>
+        </table>
+      </div>
+      <div id="tagUses" class="uses" hidden></div>
+    </div>
+
     </section>
 
     <section id="welcome" class="welcome">

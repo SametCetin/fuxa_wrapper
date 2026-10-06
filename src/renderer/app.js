@@ -49,7 +49,7 @@ function render(s) {
   $('btnRetry').hidden = f.status !== 'error';
   $('wNew').disabled = s.busy || f.status !== 'ready';
   $('wOpen').disabled = s.busy || f.status !== 'ready';
-  ['btnConnectionAdd', 'btnConnectionOther', 'btnConnectionRefresh', 'btnTagManage'].forEach(id => { $(id).disabled = s.busy || !p; });
+  ['btnConnectionAdd', 'btnConnectionOther', 'btnConnectionRefresh', 'btnAdsSettings'].forEach(id => { $(id).disabled = s.busy || !p; });
 
   $('statusText').textContent = s.busy ? 'Çalışıyor…' : (p && p.note) || (p && !p.dirty ? 'Kaydedildi' : '');
   $('statusPath').textContent = p ? (p.path || 'kaydedilmemiş proje') : '';
@@ -74,32 +74,33 @@ function renderRecent(list) {
 
 // ---------------------------------------------------------------- gömülü editör (ana süreçte ayrı görünüm)
 function syncEditor() {
-  const visible = !!state.project && ['editor', 'connections'].includes(activeTab) && !modalOpen;
+  const visible = !!state.project && ['editor', 'connections', 'tags'].includes(activeTab) && !modalOpen;
   window.fxw.editorVisible(visible);
   if (visible) sendBounds();
 }
 
 function sendBounds() {
-  const r = $(activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
+  const r = $(activeTab === 'tags' ? 'tagsHost' : activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
   window.fxw.editorBounds({ x: r.left, y: r.top, width: r.width, height: r.height });
 }
 
-const hostObserver = new ResizeObserver(() => { if (['editor', 'connections'].includes(activeTab)) sendBounds(); });
+const hostObserver = new ResizeObserver(() => { if (['editor', 'connections', 'tags'].includes(activeTab)) sendBounds(); });
 hostObserver.observe($('editorHost'));
 hostObserver.observe($('connectionsHost'));
-window.addEventListener('resize', () => { if (['editor', 'connections'].includes(activeTab)) sendBounds(); });
+hostObserver.observe($('tagsHost'));
+window.addEventListener('resize', () => { if (['editor', 'connections', 'tags'].includes(activeTab)) sendBounds(); });
 
 // ---------------------------------------------------------------- sekmeler
 function showTab(tab, navigate = true) {
-  if (navigate && state.project && ['editor', 'connections'].includes(tab)) {
-    window.fxw.editorPage(tab === 'connections' ? 'device' : 'editor');
+  if (navigate && state.project && ['editor', 'connections', 'tags'].includes(tab)) {
+    window.fxw.editorPage(tab === 'connections' ? 'device' : tab);
     return;
   }
   activeTab = tab;
-  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === (tab === 'ads' ? 'connections' : tab)));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('active', p.id === `pane-${tab}`));
   syncEditor();
-  if ((tab === 'tags' || tab === 'lint') && state.project) refreshAnalysis();
+  if (tab === 'lint' && state.project) refreshAnalysis();
   if (tab === 'ads' && state.project) refreshConnections();
 }
 
@@ -160,7 +161,7 @@ function renderTags() {
   body.replaceChildren();
   $('tagUses').hidden = true;
   if (!shown.length) {
-    body.append(el('tr', {}, el('td', { colspan: '6', class: 'empty', text: rows.length ? 'Filtreye uyan tag yok.' : 'Projede tag yok.' })));
+    body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: rows.length ? 'Filtreye uyan tag yok.' : 'Projede tag yok.' })));
     return;
   }
   for (const r of shown) {
@@ -171,26 +172,7 @@ function renderTags() {
       el('td', { text: r.device }),
       el('td', { class: 'num' }, r.uses.length
         ? el('span', { class: 'link', text: String(r.uses.length), onclick: () => showUses(r, tr) })
-        : el('span', { class: 'muted', text: '0' })),
-      el('td', {}, el('button', { class: 'tag-delete', text: 'Sil', 'aria-label': `${r.name} tag'ini sil`,
-        onclick: async (event) => {
-          if (state.busy) return;
-          const button = event.currentTarget;
-          button.disabled = true;
-          try {
-            const res = await window.fxw.deleteTag({ deviceId: String(r.deviceId), tagId: r.id });
-            if (!res || res.canceled) return;
-            if (res.errors) {
-              openModal('Tag silinemedi', res.errors.map(text => el('p', { class: 'err', text })),
-                [{ label: 'Tamam', onclick: closeModal }]);
-              return;
-            }
-            analysis = res.analysis || analysis;
-            renderLint();
-            renderTags();
-            $('statusText').textContent = `"${res.tag.name}" silindi (kaydetmeyi unutma)`;
-          } finally { button.disabled = false; }
-        } })));
+        : el('span', { class: 'muted', text: '0' })));
     body.append(tr);
   }
 }
@@ -219,88 +201,6 @@ $('btnTagCopy').addEventListener('click', async () => {
   $('statusText').textContent = `${rows.length} tag panoya kopyalandı`;
 });
 
-// ---------------------------------------------------------------- yeni tag
-function deviceLabel(d) {
-  return d.internal ? `${d.name} (sunucu içi)` : `${d.name} (${d.type})`;
-}
-
-async function showAddTag(prefill = {}) {
-  if (!analysis) await refreshAnalysis();
-  const devices = (analysis && analysis.devices) || [];
-  if (!devices.length) {
-    openModal('Yeni tag', [el('p', { text: 'Projede cihaz yok. Önce Editör sekmesinde bir bağlantı (cihaz) ekle.' })],
-      [{ label: 'Tamam', primary: true, onclick: closeModal }]);
-    return;
-  }
-  const filtered = devices.find((d) => d.name === $('tagDevice').value);
-  const initial = devices.find((d) => d.id === prefill.deviceId) || filtered
-    || devices.find((d) => !d.internal) || devices[0];
-
-  const device = el('select', { id: 'ntDevice' }, ...devices.map((d) => el('option', { value: d.id, text: deviceLabel(d) })));
-  const name = el('input', { id: 'ntName', type: 'text', autocomplete: 'off' });
-  const type = el('select', { id: 'ntType' });
-  const address = el('input', { id: 'ntAddress', type: 'text', autocomplete: 'off', placeholder: 'ör. GVL.Motor1.Start' });
-  const init = el('input', { id: 'ntInit', type: 'text', autocomplete: 'off' });
-  const desc = el('input', { id: 'ntDesc', type: 'text', autocomplete: 'off' });
-  const errBox = el('ul', { class: 'form-errors' });
-  const addrRow = [el('label', { for: 'ntAddress', text: 'Adres' }), address];
-  const initRow = [el('label', { for: 'ntInit', text: 'Başlangıç değeri' }), init];
-
-  function syncDevice() {
-    const d = devices.find((x) => x.id === device.value);
-    const prev = type.value;
-    type.replaceChildren(...d.types.map((t) => el('option', { value: t, text: t })));
-    if (d.types.includes(prev)) type.value = prev;
-    addrRow.forEach((e) => { e.hidden = d.internal; });
-    initRow.forEach((e) => { e.hidden = !d.internal; });
-  }
-  device.value = initial.id;
-  name.value = prefill.name || '';
-  address.value = prefill.address || '';
-  desc.value = prefill.description || '';
-  syncDevice();
-  if (prefill.type) type.value = prefill.type;
-  device.addEventListener('change', syncDevice);
-
-  async function save() {
-    const res = await window.fxw.addTag({
-      deviceId: device.value, name: name.value, type: type.value,
-      address: address.value, init: init.value, description: desc.value,
-    });
-    if (!res) return;
-    if (res.errors) {
-      errBox.replaceChildren(...res.errors.map((m) => el('li', { text: m })));
-      name.focus();
-      return;
-    }
-    analysis = res.analysis || analysis;
-    renderLint();
-    renderTags();
-    closeModal();
-    $('statusText').textContent = `"${res.tag.name}" eklendi (kaydetmeyi unutma)`;
-  }
-
-  const form = el('div', { class: 'form' },
-    el('label', { for: 'ntDevice', text: 'Cihaz' }), device,
-    el('label', { for: 'ntName', text: 'Ad' }), name,
-    el('label', { for: 'ntType', text: 'Tip' }), type,
-    ...addrRow, ...initRow,
-    el('label', { for: 'ntDesc', text: 'Açıklama' }), desc);
-  form.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
-
-  openModal('Yeni tag', [
-    form,
-    errBox,
-    el('p', { class: 'muted small', text: 'Tag cihaza hemen eklenir; cihazın bağlantısı bir an kopup yeniden kurulur. Dosyaya yazmak için kaydet.' }),
-  ], [
-    { label: 'İptal', onclick: closeModal },
-    { label: 'Ekle', primary: true, onclick: save },
-  ]);
-  name.focus();
-}
-
-$('btnTagAdd').addEventListener('click', () => showAddTag());
-
 // ---------------------------------------------------------------- bağlantılar
 let connectionData = null;
 let connectionRequest = null;
@@ -313,7 +213,7 @@ async function loadConnections() {
   const body = $('connectionBody');
   body.replaceChildren();
   if (!connectionData) return;
-  const devices = connectionData.devices.filter(d => !['FuxaServer', 'internal'].includes(d.type));
+  const devices = connectionData.devices.filter(d => d.type === 'ADSclient');
   if (!devices.length) body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: 'Henüz bağlantı yok. Yeni ADS bağlantısı ile bağlantı yöntemini seçerek başla.' })));
   for (const device of devices) {
     const mode = device.property?.adsTransport || 'tcp';
@@ -395,7 +295,16 @@ async function showConnection(device = null) {
 $('btnConnectionAdd').addEventListener('click', () => showConnection());
 $('btnConnectionRefresh').addEventListener('click', refreshConnections);
 $('btnConnectionOther').addEventListener('click', () => window.fxw.otherConnections());
-$('btnTagManage').addEventListener('click', () => window.fxw.otherConnections());
+$('btnAdsSettings').addEventListener('click', () => showTab('ads'));
+document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => {
+  const tags = button.dataset.control === 'tags';
+  $('control-tags').hidden = !tags;
+  $('control-lint').hidden = tags;
+  document.querySelectorAll('[data-control]').forEach(b => {
+    b.classList.toggle('primary', b === button);
+    b.setAttribute('aria-pressed', String(b === button));
+  });
+}));
 
 // ---------------------------------------------------------------- modal
 function openModal(title, bodyNodes, buttons) {
