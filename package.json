@@ -15,6 +15,7 @@
     "fetch:node": "node scripts/fetch-node.js",
     "dist": "npm run fetch:node && npm run setup:ads && electron-builder",
     "dist:dir": "npm run fetch:node && npm run setup:ads && electron-builder --dir",
+    "dist:fast": "npm run fetch:node && npm run setup:ads && electron-builder --win --x64 --dir -c.win.signExecutable=false -c.directories.output=dist/fast",
     "setup:ads": "node integrations/native-ads/prepare.js",
     "install:ads": "npm install --prefix integrations/native-ads --no-audit --no-fund && npm run setup:ads",
     "test:ads": "node --test \"integrations/native-ads/adsclient/native/test/*.test.js\"",

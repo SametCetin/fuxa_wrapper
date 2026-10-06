@@ -7,16 +7,20 @@ function patchEditor(source) {
         if (source.split(before).length !== 2) throw new Error('ADS bağlantı arayüzü değişmiş; uyarlama doğrulanmalı.');
         source = source.replace(before, after);
     };
+    replace('_e.ADSclient="ADSclient",', '_e.ADSclient="ADSclient",_e.FuxawADS="FuxawADS",');
+    replace('t.type===an.bq.ADSclient?', '(t.type===an.bq.ADSclient||t.type===an.bq.FuxawADS)?');
+    replace('t===an.bq.ADSclient||', 't===an.bq.ADSclient||t===an.bq.FuxawADS||');
+    replace('this.deviceSelected.type!==an.bq.ADSclient?', '(this.deviceSelected.type!==an.bq.ADSclient&&this.deviceSelected.type!==an.bq.FuxawADS)?');
     replace('e.SpI(" ",t.value," ")}}function p_e',
-        'e.SpI(" ",t.key==="ADSclient"?"ADS (fuxaw)":t.value," ")}}function p_e');
+        'e.SpI(" ",t.key==="FuxawADS"?"ADS (fuxaw)":t.key==="ADSclient"?"ADSclient (orijinal)":t.value," ")}}function p_e');
     replace('e.JRh(e.bMT(15,15,"plugin.group-"+t.group))',
         'e.JRh(t.bundled?t.description:e.bMT(15,15,"plugin.group-"+t.group))');
     // Keep the existing TCP behavior of saved projects lacking adsTransport.
     // The user selects the local TwinCAT router explicitly in the same form.
     replace('onDeviceTypeChanged(){this.pollingType=',
-        'onDeviceTypeChanged(){if(this.data.device.type==="ADSclient"){const p=this.data.device.property||(this.data.device.property={});p.adsTransport||(p.adsTransport="tcp"),this.data.device.polling??=1000}this.pollingType=');
+        'onDeviceTypeChanged(){if(this.data.device.type==="FuxawADS"){const p=this.data.device.property||(this.data.device.property={});p.adsTransport||(p.adsTransport="tcp"),this.data.device.polling??=1000}this.pollingType=');
     replace('t.property.local=o.property.local,t.property.router=o.property.router',
-        't.property.local=o.property.local,t.property.router=o.property.router,t.type==="ADSclient"&&(t.property.adsTransport=o.property.adsTransport||"tcp")');
+        't.property.local=o.property.local,t.property.router=o.property.router,t.type==="FuxawADS"?(t.property.adsTransport=o.property.adsTransport||"tcp"):t.type==="ADSclient"&&delete t.property.adsTransport');
     const start = source.indexOf('function l1e(r,a){');
     const end = source.indexOf('function c1e(r,a){', start);
     if (start < 0 || end < 0) throw new Error('ADS bağlantı alanları bulunamadı.');
@@ -35,8 +39,11 @@ function patchEditor(source) {
         JSON.stringify(process.platform !== 'win32' || process.arch !== 'x64') + '),e.R7$(2),e.Y8G("value","tcp")}}');
     template = template.replace('e.bMT(4,6,', 'e.bMT(4,16,')
         .replace('e.bMT(9,8,', 'e.bMT(9,18,').replace('e.bMT(14,10,', 'e.bMT(14,20,');
-    replace(source.slice(start, end), template);
-    replace('l1e,16,12,"div",39', 'l1e,26,22,"div",39');
+    // Preserve the original ADS form; add a separate form case for our plugin.
+    replace(source.slice(start, end), source.slice(start, end) + template.replace('function l1e(', 'function fxwAdsForm('));
+    replace('(14,v1e,14,12,"div",39),e.k0s())', '(14,v1e,14,12,"div",39)(15,fxwAdsForm,26,22,"div",39),e.k0s())');
+    replace('e.Y8G("ngSwitchCase",t.deviceType.REDIS)}}function y1e', 'e.Y8G("ngSwitchCase",t.deviceType.REDIS),e.R7$(),e.Y8G("ngSwitchCase",t.deviceType.FuxawADS)}}function y1e');
+    replace('_1e,15,15,', '_1e,16,16,');
     return source;
 }
 

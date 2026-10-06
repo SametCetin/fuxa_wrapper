@@ -21,12 +21,12 @@ test('ADS editor adaptation preserves legacy transport and refuses unknown bundl
             an: { bq: { WebAPI: 'WebAPI', WebCam: 'WebCam' } },
         });
         for (const transport of [undefined, 'native', 'tcp']) {
-            const device = { type: 'ADSclient', property: { address: '1.2.3.4.5.6:851', adsTransport: transport } };
+            const device = { type: 'FuxawADS', property: { address: '1.2.3.4.5.6:851', adsTransport: transport } };
             change.call({ data: { device } });
             assert.equal(device.property.adsTransport, transport || 'tcp');
             assert.equal(device.polling, 1000);
         }
-        const device = { type: 'ADSclient', polling: 100, property: { adsTransport: 'native' } };
+        const device = { type: 'FuxawADS', polling: 100, property: { adsTransport: 'native' } };
         change.call({ data: { device } });
         assert.equal(device.polling, 100);
     });

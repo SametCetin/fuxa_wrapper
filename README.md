@@ -30,7 +30,7 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 - **Taglar:** doğrudan gömülü editörün tag tablosu; ekleme, düzenleme, silme, arama, canlı değer ve zaman damgası. İlk girişte ilk PLC/harici cihaz, yoksa sunucu içi cihaz açılır. Son seçilen bağlantı aynı proje açıkken hatırlanır; yeni/açılan projede sıfırlanır. Değişiklikleri `.fxprj` dosyasına yazmak için Dosya → Kaydet kullan.
 - **Kontrol → Proje kontrolü:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
 - **Kontrol → Tag kullanımları:** tüm tag'lerde arama, cihaz ve kullanılmayanlar filtresi. Kullanım sayısı ekran öğesi, event ve script referanslarını gösterir. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
-- **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Yeni bağlantıda **Type → ADS (fuxaw)** seç; aynı penceredeki **Bağlantı yöntemi** alanında **Yerel TwinCAT (Windows)** veya **ADS-TCP** kullan. Tüm ADS bağlantılarını uygulamayla gelen eklenti yönetir; `ads-client` onun kullandığı kütüphanedir. Editör sekmesi çizim ekranına döner.
+- **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Yeni bağlantıda **Type → ADS (fuxaw)** seç; aynı penceredeki **Bağlantı yöntemi** alanında **Yerel TwinCAT (Windows)** veya **ADS-TCP** kullan. **ADSclient (orijinal)** özgün `ads-client` sürücüsünü, **ADS (fuxaw)** ayrı `@fuxaw/ads-plugin` sürücüsünü kullanır. İki eklenti Sunucu eklentileri sayfasında ayrı görünür. Bizim eklenti bu sayfadan çevrimdışı kaldırılıp yeniden kurulabilir; seçim uygulama yeniden başlatılınca korunur. Editör sekmesi çizim ekranına döner.
 
 ### ADS okuma aralığı
 
@@ -67,10 +67,11 @@ npm install        # Electron + paketleyici; FUXA'yı fuxa-runtime/ altına kura
 npm start          # uygulamayı geliştirme modunda açar
 npm test           # çekirdek testler
 npm run dist:dir   # kurulumsuz paket: dist/win-unpacked/fuxaw.exe
+npm run dist:fast  # imzalamadan hızlı Windows paketi: dist/fast/win-unpacked/fuxaw.exe
 npm run dist       # kurulum paketi
 ```
 
-VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır; proje uygulamadan açılır) ve **Release** (kurulum paketi, `dist/`). Ctrl+Shift+B = Release.
+VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır; proje uygulamadan açılır), **Release** (kurulum paketi, `dist/`) ve **Hızlı EXE** (imzasız, kurulumsuz Windows x64 paketi, `dist/fast/win-unpacked/fuxaw.exe`). Ctrl+Shift+B = Release; diğer derleme görevleri arasından Hızlı EXE de seçilebilir. Hızlı EXE, NSIS ve imzalama adımlarını atlar; çalıştırmak/taşımak için tüm `win-unpacked` klasörü gerekir.
 
 Geliştirmede Node.js 22+ gerekir (FUXA'yı da o çalıştırır). Paket için `scripts/fetch-node.js` sabit sürüm Node.js'i `vendor/node/`'a indirir.
 
@@ -84,7 +85,7 @@ Yönetilen projeler ayrı repoda: `C:\sct\syncthing\sc_genel\fuxa_projects` (ör
 fuxa_wrapper/
 ├─ README.md / AGENTS.md / CLAUDE.md
 ├─ package.json             ← Electron uygulaması + electron-builder ayarları
-├─ .vscode/                 ← Debug ve Release (launch.json, tasks.json)
+├─ .vscode/                 ← Debug, Release ve Hızlı EXE (launch.json, tasks.json)
 ├─ src/
 │  ├─ core/                 ← model, fxprj, lint, tags, publish (Electron'dan bağımsız, testli)
 │  ├─ main/                 ← ana süreç: main.js, fuxa.js (gömülü FUXA), fuxaApi.js

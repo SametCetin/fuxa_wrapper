@@ -9,7 +9,7 @@ function validPort(value) { return Number.isInteger(Number(value)) && Number(val
 function buildAdsDevice(devices, spec, { nativeAvailable = process.platform === 'win32' && process.arch === 'x64' } = {}) {
   const errors = [];
   const existing = spec.id ? devices[spec.id] : null;
-  if (spec.id && (!existing || existing.type !== 'ADSclient')) return { errors: ['ADS cihazı bulunamadı; listeyi yenile.'] };
+  if (spec.id && (!existing || existing.type !== 'FuxawADS')) return { errors: ['ADS eklentisinin cihazı bulunamadı; listeyi yenile.'] };
   const name = String(spec.name || '').trim();
   const netId = String(spec.netId || '').trim();
   const transport = spec.transport;
@@ -32,7 +32,7 @@ function buildAdsDevice(devices, spec, { nativeAvailable = process.platform === 
   }
   if (errors.length) return { errors };
   return { device: {
-    ...(existing || {}), id: existing?.id || `d_${randomUUID()}`, name, type: 'ADSclient',
+    ...(existing || {}), id: existing?.id || `d_${randomUUID()}`, name, type: 'FuxawADS',
     enabled: spec.enabled === true, polling, tags: existing?.tags || {},
     property: { ...(existing?.property || {}), address: `${netId}:${Number(spec.port)}`, port: Number(spec.port),
       adsTransport: transport, ...(transport === 'tcp' ? { local, router } : {}) },

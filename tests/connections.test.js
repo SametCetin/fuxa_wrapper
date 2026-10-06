@@ -14,7 +14,7 @@ test('ADS method is explicit and new devices remain disabled until requested', (
 });
 
 test('changing ADS transport preserves tags and unknown device properties without mutating the source', () => {
-  const device = { id: 'd_old', name: 'PLC', type: 'ADSclient', tags: { t_old: { name: 'Motor' } },
+  const device = { id: 'd_old', name: 'PLC', type: 'FuxawADS', tags: { t_old: { name: 'Motor' } },
     extra: { value: 'keep' }, property: { address: '192.168.1.10.1.1:851', adsTransport: 'native', custom: 42 } };
   const before = JSON.stringify(device);
   const result = buildAdsDevice({ d_old: device }, { ...fixture, id: 'd_old', transport: 'tcp',
@@ -30,7 +30,7 @@ test('invalid addresses, duplicate names and accidental device rename are reject
   assert.ok(buildAdsDevice({}, { ...fixture, netId: '999.1.1.1.1.1' }).errors);
   assert.ok(buildAdsDevice({}, { ...fixture, port: 0 }).errors);
   assert.ok(buildAdsDevice({}, { ...fixture, transport: 'tcp', router: '192.168.1.10:99999' }).errors);
-  const devices = { d: { id: 'd', name: 'PLC', type: 'ADSclient' } };
+  const devices = { d: { id: 'd', name: 'PLC', type: 'FuxawADS' } };
   assert.ok(buildAdsDevice(devices, fixture).errors);
   assert.ok(buildAdsDevice(devices, { ...fixture, id: 'd', name: 'Renamed' }).errors);
 });

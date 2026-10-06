@@ -83,7 +83,7 @@ function isInternal(deviceType) {
 
 /** Cihaz tipine göre seçilebilecek tag tipleri; bilinmeyen cihazda cihazdaki mevcut tipler. */
 function tagTypesFor(device) {
-  if (device.type === 'ADSclient') return TYPES.ADSclient;
+  if (device.type === 'ADSclient' || device.type === 'FuxawADS') return TYPES.ADSclient;
   if (isInternal(device.type)) return TYPES.internal;
   const seen = [...new Set(Object.values(device.tags || {}).map((t) => t.type).filter(Boolean))];
   return seen.sort();

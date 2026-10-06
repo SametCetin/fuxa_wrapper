@@ -2,6 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { install } = require('../integrations/native-ads');
 
 function engine(version = '1.3.4', fails = false) {
@@ -12,14 +14,15 @@ function engine(version = '1.3.4', fails = false) {
         async removePlugin() { calls.push('remove-default'); },
         async getPlugins() { return [{ name: 'ads-client', type: 'ADSclient', current: '2.1.0' },
             { name: 'other', type: 'Other', current: '1' }]; },
-        getPlugin(type) { return { type, name: 'other' }; },
+        getPlugin(type) { return { type, name: type === 'ADSclient' ? 'ads-client' : 'other' }; },
     };
     const devices = { loadPlugin(type, filename) {
         calls.push(type);
-        assert.equal(typeof require(filename).create, 'function');
+        if (filename) assert.equal(typeof require(filename).create, 'function');
     } };
-    return { plugins, calls, requireModule(filename) {
+    return { plugins, calls, loadDevices: () => devices, requireModule(filename) {
         if (filename === 'ads-client') return { Client: class {} };
+        if (filename === 'ads-client/package.json') return { version: '2.1.0' };
         if (filename.endsWith('package.json')) return { version };
         if (filename.endsWith(path.join('runtime', 'plugins'))) return plugins;
         if (filename.endsWith(path.join('devices', 'device'))) return devices;
@@ -33,9 +36,9 @@ test('offline driver loads after defaults, once per initialization, without npm 
     install('/engine', fake);
     assert.deepEqual(fake.calls, []);
     assert.equal(await fake.plugins.init(), 42);
-    assert.deepEqual(fake.calls, ['defaults', 'ADSclient']);
+    assert.deepEqual(fake.calls, ['defaults', 'FuxawADS']);
     await fake.plugins.init();
-    assert.deepEqual(fake.calls, ['defaults', 'ADSclient', 'defaults', 'ADSclient']);
+    assert.deepEqual(fake.calls, ['defaults', 'FuxawADS', 'defaults', 'FuxawADS']);
 });
 
 test('unsupported engine version is rejected before registration', () => {
@@ -49,28 +52,45 @@ test('installing engine plugins cannot replace the bundled ADS driver', async ()
     const fake = engine();
     install('/engine', fake);
     await fake.plugins.init();
-    assert.equal((await fake.plugins.addPlugin('ads-client')).name, '@fuxaw/ads-plugin');
-    assert.equal(await fake.plugins.addPlugin('other'), 'installed');
-    assert.deepEqual(fake.calls, ['defaults', 'ADSclient', 'install-default', 'ADSclient']);
+    assert.equal(await fake.plugins.addPlugin('ads-client'), 'installed');
+    assert.deepEqual(fake.calls, ['defaults', 'FuxawADS', 'install-default', 'FuxawADS']);
 });
 
-test('plugin registry reports one bundled ADS driver and protects its dependency', async () => {
+test('plugin registry preserves original ADS and manages the separate bundled plugin offline', async () => {
     const fake = engine();
     install('/engine', fake);
     const list = await fake.plugins.getPlugins();
-    const ads = list.filter(p => p.type === 'ADSclient');
+    const ads = list.filter(p => p.type === 'FuxawADS');
+    assert.equal(list.find(p=>p.type === 'ADSclient').name, 'ads-client');
     assert.equal(ads.length, 1);
     assert.equal(ads[0].name, '@fuxaw/ads-plugin');
     assert.equal(ads[0].current, '1.0.0');
-    assert.equal(ads[0].dinamic, false);
-    assert.equal(ads[0].canRemove, false);
-    assert.equal(fake.plugins.getPlugin('ADSclient').name, ads[0].name);
+    assert.equal(ads[0].dinamic, true);
+    assert.equal(ads[0].canRemove, true);
+    assert.equal(fake.plugins.getPlugin('FuxawADS').name, ads[0].name);
+    assert.equal(fake.plugins.getPlugin('ADSclient').name, 'ads-client');
     assert.equal(fake.plugins.getPlugin('Other').name, 'other');
-    for (const name of ['ads-client', '@fuxaw/ads-plugin']) {
-        await assert.rejects(fake.plugins.removePlugin({ name }), /kaldırılamaz/);
-    }
-    await fake.plugins.removePlugin('other');
-    assert.deepEqual(fake.calls, ['remove-default']);
+    await fake.plugins.removePlugin(JSON.stringify({ name: '@fuxaw/ads-plugin' }));
+    assert.equal((await fake.plugins.getPlugins()).find(p=>p.type === 'FuxawADS').current, '');
+    await fake.plugins.addPlugin({ name: '@fuxaw/ads-plugin' });
+    assert.equal((await fake.plugins.getPlugins()).find(p=>p.type === 'FuxawADS').current, '1.0.0');
+    await fake.plugins.removePlugin('ads-client');
+    assert.deepEqual(fake.calls, ['FuxawADS', 'FuxawADS', 'remove-default']);
+});
+
+test('plugin removal survives engine restart while original registration stays available', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ads-plugin-state-'));
+    try {
+        const settings = { settingsFile: path.join(dir, 'settings.js') };
+        const first = engine(); install('/engine', first); await first.plugins.init(settings);
+        await first.plugins.removePlugin('@fuxaw/ads-plugin');
+        const restarted = engine(); install('/engine', restarted); await restarted.plugins.init(settings);
+        const list = await restarted.plugins.getPlugins();
+        assert.equal(list.find(p => p.type === 'FuxawADS').current, '');
+        assert.equal(list.find(p => p.type === 'ADSclient').current, '2.1.0');
+        await restarted.plugins.addPlugin('@fuxaw/ads-plugin');
+        assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'fuxaw-ads-plugin.json'))).enabled, true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('failed engine initialization does not activate the driver', async () => {
