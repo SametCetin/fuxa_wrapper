@@ -9,12 +9,15 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test \"tests/**/*.test.js\"",
+    "test": "node --test \"tests/**/*.test.js\" \"integrations/native-ads/adsclient/native/test/*.test.js\"",
     "postinstall": "node node_modules/electron/install.js && npm run setup:fuxa",
-    "setup:fuxa": "npm install --prefix fuxa-runtime --no-audit --no-fund",
+    "setup:fuxa": "npm install --prefix fuxa-runtime --no-audit --no-fund && npm run setup:ads",
     "fetch:node": "node scripts/fetch-node.js",
-    "dist": "npm run fetch:node && electron-builder",
-    "dist:dir": "npm run fetch:node && electron-builder --dir"
+    "dist": "npm run fetch:node && npm run setup:ads && electron-builder",
+    "dist:dir": "npm run fetch:node && npm run setup:ads && electron-builder --dir",
+    "setup:ads": "node integrations/native-ads/apply.js",
+    "test:ads": "node --test \"integrations/native-ads/adsclient/native/test/*.test.js\"",
+    "probe:ads": "node integrations/native-ads/probe.js"
   },
   "devDependencies": {
     "electron": "^44.5.1",

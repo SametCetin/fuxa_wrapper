@@ -95,3 +95,7 @@ fuxa_wrapper/
 - **2026-10-02:** Kullanıcı kararıyla Electron masaüstü uygulamasına geçildi: kendi penceresi, Dosya menüsü (Yeni/Aç/Kaydet/Publish), `.fxprj` tek dosya, gömülü FUXA + editör. Python kodu silindi. Windows'ta geliştirme ve paketlenmiş halde denendi: aç → düzenle → `●` → Ctrl+S → dosyada değişiklik; Yeni → Kaydet; Publish; Taglar; kapatırken soru.
 - **2026-10-02:** Pencereden komut düğmeleri kaldırıldı (sadece menü); açılış penceresi; uygulamanın kendi metinlerinden FUXA adı çıkarıldı (editörün kendi metinleri olduğu gibi); Taglar'a "Yeni tag"; VS Code Debug/Release.
 - Sonraki aşamalar: AGENTS.md §9.
+
+## TwinCAT 4026 UM bağlantısı
+
+Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe geliştirilir. Gömülü editör bileşenine kurulum ve paketleme sırasında uygulanır; başka bir kaynak deposuna ihtiyaç duymaz. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
