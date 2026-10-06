@@ -12,6 +12,7 @@
       <button data-tab="editor" class="active">Editör</button>
       <button data-tab="tags">Taglar</button>
       <button data-tab="connections">Bağlantılar</button>
+      <button data-tab="ads">ADS ayarları</button>
       <button data-tab="lint">Kontrol <span id="lintBadge" class="badge" hidden></span></button>
     </div>
     <div class="spacer"></div>
@@ -32,6 +33,7 @@
         <div class="spacer"></div>
         <span id="tagCount" class="muted"></span>
         <button id="btnTagAdd" class="primary">Yeni tag</button>
+        <button id="btnTagManage">Tagları düzenle…</button>
         <button id="btnTagCopy" title="Görünen satırları Excel'e yapıştırılabilir biçimde kopyala">Kopyala</button>
         <button id="btnTagRefresh">Yenile</button>
       </div>
@@ -45,10 +47,14 @@
     </section>
 
     <section id="pane-connections" class="pane">
+      <div id="connectionsHost"><div class="placeholder">Bağlantı ve tag yönetimi yükleniyor…</div></div>
+    </section>
+
+    <section id="pane-ads" class="pane">
       <div class="pane-bar">
         <b>Cihaz bağlantıları</b><div class="spacer"></div>
         <button id="btnConnectionAdd" class="primary">Yeni ADS bağlantısı</button>
-        <button id="btnConnectionOther">Diğer bağlantı türleri…</button>
+        <button id="btnConnectionOther">Bağlantı ve tag yönetimi…</button>
         <button id="btnConnectionRefresh">Yenile</button>
       </div>
       <p class="connection-help">Yerel TwinCAT: bu bilgisayarın TwinCAT router'ını kullanır. ADS / TCP: TCP router'a bağlanır. ADS cihazının yöntemini Düzenle ile seç.</p>

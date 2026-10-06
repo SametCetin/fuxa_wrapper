@@ -541,10 +541,10 @@ async function publishRun() {
   return publisher.publish(fxprj.read(cur.path).doc, cur.path);
 }
 
-/** Gömülü editörün bir sayfasını (editor, device, plugins) Editör sekmesinde aç. */
+/** Gömülü sayfayı aç; cihaz yönetimi kendi Bağlantılar sekmesinde gösterilir. */
 async function showEditorPage(page) {
   if (!cur.doc || fuxaState.status !== 'ready' || !editorView) return;
-  win.webContents.send('show-tab', 'editor');
+  win.webContents.send('show-tab', page === 'device' ? 'connections' : 'editor');
   const url = editorView.webContents.getURL();
   if (url.startsWith(`${fuxaState.url}/${page}`)) return;
   if (url.includes('/editor')) await flushEditor(); // ayrılmadan bekleyen çizimleri sunucuya aktar
@@ -605,7 +605,8 @@ function buildMenu() {
     {
       label: 'Ayarlar',
       submenu: [
-        { label: 'Bağlantılar (cihazlar)…', accelerator: 'CmdOrCtrl+4', click: send('tab:connections') },
+        { label: 'Bağlantılar ve tag yönetimi…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
+        { label: 'ADS bağlantı ayarları…', click: send('tab:ads') },
         { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
       ],
     },
@@ -659,6 +660,7 @@ function registerIpc() {
   handle('connections:list', guard(connections));
   handle('connections:save', guard(saveConnection));
   handle('connections:other', guard(() => showEditorPage('device')));
+  handle('editor:page', guard((page) => ['editor', 'device'].includes(page) && showEditorPage(page)));
   handle('publish:prepare', guard(publishPrepare));
   handle('publish:choose-dir', guard(publishChooseDir));
   handle('publish:run', guard(publishRun));

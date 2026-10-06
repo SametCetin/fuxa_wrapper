@@ -49,7 +49,7 @@ function render(s) {
   $('btnRetry').hidden = f.status !== 'error';
   $('wNew').disabled = s.busy || f.status !== 'ready';
   $('wOpen').disabled = s.busy || f.status !== 'ready';
-  ['btnConnectionAdd', 'btnConnectionOther', 'btnConnectionRefresh'].forEach(id => { $(id).disabled = s.busy || !p; });
+  ['btnConnectionAdd', 'btnConnectionOther', 'btnConnectionRefresh', 'btnTagManage'].forEach(id => { $(id).disabled = s.busy || !p; });
 
   $('statusText').textContent = s.busy ? 'Çalışıyor…' : (p && p.note) || (p && !p.dirty ? 'Kaydedildi' : '');
   $('statusPath').textContent = p ? (p.path || 'kaydedilmemiş proje') : '';
@@ -74,27 +74,33 @@ function renderRecent(list) {
 
 // ---------------------------------------------------------------- gömülü editör (ana süreçte ayrı görünüm)
 function syncEditor() {
-  const visible = !!state.project && activeTab === 'editor' && !modalOpen;
+  const visible = !!state.project && ['editor', 'connections'].includes(activeTab) && !modalOpen;
   window.fxw.editorVisible(visible);
   if (visible) sendBounds();
 }
 
 function sendBounds() {
-  const r = $('editorHost').getBoundingClientRect();
+  const r = $(activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
   window.fxw.editorBounds({ x: r.left, y: r.top, width: r.width, height: r.height });
 }
 
-new ResizeObserver(() => { if (activeTab === 'editor') sendBounds(); }).observe($('editorHost'));
-window.addEventListener('resize', () => { if (activeTab === 'editor') sendBounds(); });
+const hostObserver = new ResizeObserver(() => { if (['editor', 'connections'].includes(activeTab)) sendBounds(); });
+hostObserver.observe($('editorHost'));
+hostObserver.observe($('connectionsHost'));
+window.addEventListener('resize', () => { if (['editor', 'connections'].includes(activeTab)) sendBounds(); });
 
 // ---------------------------------------------------------------- sekmeler
-function showTab(tab) {
+function showTab(tab, navigate = true) {
+  if (navigate && state.project && ['editor', 'connections'].includes(tab)) {
+    window.fxw.editorPage(tab === 'connections' ? 'device' : 'editor');
+    return;
+  }
   activeTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('active', p.id === `pane-${tab}`));
   syncEditor();
   if ((tab === 'tags' || tab === 'lint') && state.project) refreshAnalysis();
-  if (tab === 'connections' && state.project) refreshConnections();
+  if (tab === 'ads' && state.project) refreshConnections();
 }
 
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -389,6 +395,7 @@ async function showConnection(device = null) {
 $('btnConnectionAdd').addEventListener('click', () => showConnection());
 $('btnConnectionRefresh').addEventListener('click', refreshConnections);
 $('btnConnectionOther').addEventListener('click', () => window.fxw.otherConnections());
+$('btnTagManage').addEventListener('click', () => window.fxw.otherConnections());
 
 // ---------------------------------------------------------------- modal
 function openModal(title, bodyNodes, buttons) {
@@ -472,7 +479,7 @@ window.fxw.onCommand((cmd) => {
 });
 window.fxw.onShowTab((tab) => {
   if (modalOpen) closeModal();
-  showTab(tab);
+  showTab(tab, false);
 });
 window.fxw.onState(render);
 window.fxw.state().then(render);

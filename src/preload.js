@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('fxw', {
   connections: call('connections:list'),
   saveConnection: call('connections:save'),
   otherConnections: call('connections:other'),
+  editorPage: call('editor:page'),
   publishPrepare: call('publish:prepare'),
   publishChooseDir: call('publish:choose-dir'),
   publishRun: call('publish:run'),
