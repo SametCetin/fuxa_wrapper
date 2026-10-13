@@ -6,6 +6,8 @@
 //     "name": "fuxa1",                  proje adı (publish klasörü/dosya adı)
 //     "fuxaVersion": "1.3.4",           projenin hazırlandığı FUXA
 //     "publish": {"dir": "publish"},    publish klasörü (.fxprj'e göre göreli veya mutlak)
+//     "connections": {"dir": "connections", "default": "dev"}
+//                                       isteğe bağlı: bağlantı ayarları ortam dosyalarında (envs.js)
 //     "project": { ...FUXA projesi... } tag value/timestamp olmadan
 //   }
 //
@@ -83,6 +85,8 @@ function parse(text, fileName = '') {
       publish: { dir: 'publish', ...(obj.publish || {}) },
       project: migrateAdsPlugin(obj.project),
     };
+    // Bağlantı ayarları ayrı ortam dosyalarında (bkz. envs.js)
+    if (obj.connections && typeof obj.connections === 'object') doc.connections = { ...obj.connections };
     return { doc, imported: false };
   }
   if (isFuxaProject(obj)) {
@@ -124,6 +128,7 @@ function serialize(doc) {
     name: doc.name,
     fuxaVersion: doc.fuxaVersion || FUXA_VERSION,
     publish: doc.publish || { dir: 'publish' },
+    ...(doc.connections ? { connections: doc.connections } : {}),
     project: model.cleanProject(doc.project),
   };
   return JSON.stringify(out, null, 2) + '\n';

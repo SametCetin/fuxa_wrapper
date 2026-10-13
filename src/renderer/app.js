@@ -30,6 +30,7 @@ function render(s) {
   info.replaceChildren();
   if (p) {
     info.append(el('b', { text: p.name }));
+    if (p.env) info.append(el('span', { class: 'muted', text: ` [${p.env}]` }));
     if (p.dirty) info.append(el('span', { class: 'dirty', text: ' ● kaydedilmedi' }));
   }
 
@@ -243,24 +244,33 @@ function findingsList(found) {
     el('span', { class: `level-${f.level}`, text: f.level }), ` ${f.where}: ${f.message}`)));
 }
 
+function envSelect(plan) {
+  const sel = el('select', {
+    onchange: async () => { const p = await window.fxw.publishPrepare(sel.value); if (p) showPublishPlan(p); },
+  }, ...plan.envs.map((n) => el('option', { value: n, text: n })));
+  sel.value = plan.env;
+  return sel;
+}
+
 function showPublishPlan(plan) {
   const blocked = plan.errors > 0;
   openModal('Publish (klasöre)', [
     el('p', { class: 'muted', text: 'Kaydedilmiş proje hedef makine için klasöre yazılır. Ağ üzerinden hiçbir yere gönderilmez; klasörü hedef makineye elle taşı.' }),
     el('dl', { class: 'kv' },
+      ...(plan.envs ? [el('dt', { text: 'Bağlantı ortamı' }), el('dd', {}, envSelect(plan))] : []),
       el('dt', { text: 'Klasör' }), el('dd', { text: plan.dir || '-' }),
       el('dt', { text: 'Dosyalar' }), el('dd', { text: plan.files.map((f) => f.split(/[\\/]/).pop()).join(', ') })),
-    blocked ? el('p', { class: 'err', text: `${plan.errors} hata var; publish yapılmaz. Editörde düzeltip kaydet.` }) : null,
+    blocked ? el('p', { class: 'err', text: `${plan.errors} hata var; publish yapılmaz. Editörde (ya da ortam dosyasında) düzeltip kaydet.` }) : null,
     findingsList(plan.lint),
   ].filter(Boolean), [
-    { label: 'Klasörü değiştir…', onclick: async () => { const p = await window.fxw.publishChooseDir(); if (p) showPublishPlan(p); } },
+    { label: 'Klasörü değiştir…', onclick: async () => { const p = await window.fxw.publishChooseDir(plan.env); if (p) showPublishPlan(p); } },
     { label: 'İptal', onclick: closeModal },
-    { label: 'Publish', primary: true, disabled: blocked, onclick: runPublish },
+    { label: 'Publish', primary: true, disabled: blocked, onclick: () => runPublish(plan.env) },
   ]);
 }
 
-async function runPublish() {
-  const res = await window.fxw.publishRun();
+async function runPublish(env) {
+  const res = await window.fxw.publishRun(env);
   if (!res) return;
   if (!res.ok) {
     showPublishPlan(res);
@@ -268,7 +278,9 @@ async function runPublish() {
   }
   openModal('Publish tamamlandı', [
     el('p', { class: 'ok', text: 'Hedef makine için klasör hazır.' }),
-    el('dl', { class: 'kv' }, el('dt', { text: 'Klasör' }), el('dd', { text: res.dir })),
+    el('dl', { class: 'kv' },
+      ...(res.env ? [el('dt', { text: 'Bağlantı ortamı' }), el('dd', { text: res.env })] : []),
+      el('dt', { text: 'Klasör' }), el('dd', { text: res.dir })),
     el('p', { class: 'muted', text: 'Hedef makinede ne yapılacağı klasördeki README.md\'de yazıyor.' }),
   ], [
     { label: 'Klasörü aç', onclick: () => window.fxw.reveal(res.dir) },

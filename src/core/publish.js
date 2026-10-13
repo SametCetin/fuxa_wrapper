@@ -18,13 +18,23 @@ function resolveDir(doc, fxprjPath) {
   return path.resolve(path.dirname(fxprjPath), dir);
 }
 
-function plan(doc, fxprjPath) {
+/**
+ * opts.env: bağlantı ortamı adı (ayrık düzen), opts.missing: o ortamda ayarı olmayan bağlantılar
+ * (envs.compose). Ayarı olmayan bağlantı hedefe adressiz gideceği için HATA sayılır.
+ */
+function plan(doc, fxprjPath, { env = null, missing = [] } = {}) {
   const items = model.splitProject(doc.project);
-  const found = lintmod.lint(items);
+  const found = [
+    ...missing.map((name) => ({
+      level: lintmod.ERROR, where: `bağlantı ${name}`, message: `"${env}" ortamında bağlantı ayarı yok (${env}.json)`,
+    })),
+    ...lintmod.lint(items),
+  ];
   const base = resolveDir(doc, fxprjPath);
   const name = safeName(doc.name);
   const out = base && path.join(base, name);
   return {
+    env,
     lint: found,
     errors: found.filter((f) => f.level === lintmod.ERROR).length,
     dir: out,
@@ -32,14 +42,14 @@ function plan(doc, fxprjPath) {
   };
 }
 
-function publish(doc, fxprjPath, now = new Date()) {
-  const p = plan(doc, fxprjPath);
+function publish(doc, fxprjPath, now = new Date(), opts = {}) {
+  const p = plan(doc, fxprjPath, opts);
   if (p.errors) return { ok: false, reason: 'lint', ...p };
   if (!p.dir) return { ok: false, reason: 'nodir', ...p };
   fs.mkdirSync(p.dir, { recursive: true });
   const [prjFile, readmeFile] = p.files;
   fs.writeFileSync(prjFile, JSON.stringify(model.cleanProject(doc.project), null, 2) + '\n', 'utf8');
-  fs.writeFileSync(readmeFile, readme(doc, fxprjPath, path.basename(prjFile), p.lint, now), 'utf8');
+  fs.writeFileSync(readmeFile, readme(doc, fxprjPath, path.basename(prjFile), p.lint, now, p.env), 'utf8');
   return { ok: true, ...p };
 }
 
@@ -48,7 +58,7 @@ function stamp(d) {
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
 }
 
-function readme(doc, fxprjPath, fname, found, now) {
+function readme(doc, fxprjPath, fname, found, now, env = null) {
   const items = model.splitProject(doc.project);
   const names = (kind) => model.itemsOfKind(items, kind).map(([, v]) => v.name || '').sort();
   const devs = model.itemsOfKind(items, 'device').map(([, v]) => v).sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -59,6 +69,7 @@ function readme(doc, fxprjPath, fname, found, now) {
     `- Üretildi: ${stamp(now)} (fuxaw → Publish)`,
     `- Kaynak: \`${fxprjPath || '-'}\``,
     `- FUXA sürümü: ${doc.fuxaVersion || '?'}`,
+    ...(env ? [`- Bağlantı ortamı: **${env}** (cihaz adresleri bu ortamın ayarlarıdır)`] : []),
     `- Lint: ${found.length ? `${warns.length} uyarı, hata yok` : 'temiz'}`,
     '',
     '## Dosyalar',

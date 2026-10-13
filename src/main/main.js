@@ -18,6 +18,7 @@ const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = requi
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
 const sync = require('../core/sync');
+const envs = require('../core/envs');
 const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
 
@@ -48,6 +49,8 @@ const cur = {
   diskHash: null,    // .fxprj içeriğinin son okunduğu/yazıldığı andaki özeti
   ignoredHash: null, // birleştirilmesi ertelenen disk içeriği (aynısı için tekrar sorulmaz)
   diskBase: null,    // dosyadaki proje (son okunan/yazılan, ham): diskte ne değişti
+  env: null,         // etkin bağlantı ortamı (ayrık düzende; null = ayarlar .fxprj'in içinde)
+  missing: [],       // etkin ortamda ayarı olmayan bağlantılar
   liveBase: null,    // aynı halin sunucudaki karşılığı: editörde ne değişti
 };
 
@@ -62,6 +65,60 @@ function readJson(file, fallback) {
 
 function recentList() {
   return readJson(userFile('recent.json'), []).filter((p) => typeof p === 'string');
+}
+
+// Kişiye özel proje tercihleri (git'e girmez): etkin ortam, son publish ortamı.
+function projectPrefs(p) {
+  const all = readJson(userFile('projects.json'), {});
+  return (p && all[path.resolve(p).toLowerCase()]) || {};
+}
+
+function setProjectPrefs(p, patch) {
+  const all = readJson(userFile('projects.json'), {});
+  const key = path.resolve(p).toLowerCase();
+  all[key] = { ...(all[key] || {}), ...patch };
+  fs.writeFileSync(userFile('projects.json'), JSON.stringify(all, null, 2));
+}
+
+/**
+ * Diskteki proje: .fxprj + (ayrık düzende) bağlantı ortamı dosyası birleştirilmiş halde.
+ * {doc, imported, hash, env, missing}; hash iki dosyanın içeriğini birlikte özetler.
+ */
+function readDisk(p, envName = null) {
+  const r = fxprj.read(p);
+  if (r.imported || !envs.isSplit(r.doc)) return { ...r, env: null, missing: [] };
+  const dir = envs.resolveDir(r.doc, p);
+  const env = envName || projectPrefs(p).env || r.doc.connections.default || envs.list(dir)[0] || 'dev';
+  const { conn, text } = envs.read(dir, env);
+  const { project, missing } = envs.compose(r.doc.project, conn || {});
+  r.doc.project = project;
+  return { ...r, hash: envs.combinedHash(r.hash, text), env, missing };
+}
+
+/** Projeyi diske yaz (ayrık düzende bağlantı ayarları etkin ortam dosyasına). Yazılanın özetini döner. */
+function writeDisk(target, doc, env) {
+  if (!envs.isSplit(doc)) return fxprj.write(target, doc);
+  const dir = envs.resolveDir(doc, target);
+  // Farklı klasöre kaydedilirse diğer ortam dosyaları da yanına kopyalanır.
+  const oldDir = cur.path && cur.doc && envs.isSplit(cur.doc) ? envs.resolveDir(cur.doc, cur.path) : null;
+  if (oldDir && !samePath(oldDir, dir)) {
+    for (const name of envs.list(oldDir)) {
+      const to = envs.envFile(dir, name);
+      if (name !== env && !fs.existsSync(to)) {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.copyFileSync(envs.envFile(oldDir, name), to);
+      }
+    }
+  }
+  const { project, conn } = envs.extract(doc.project);
+  const text = envs.write(dir, env, conn);
+  return envs.combinedHash(fxprj.write(target, { ...doc, project }), text);
+}
+
+function envNote(env, missing) {
+  return missing.length
+    ? `"${env}" ortamında ayarı olmayan bağlantı: ${missing.join(', ')} (kapalı yüklendi).`
+    : null;
 }
 
 function addRecent(p) {
@@ -82,6 +139,7 @@ function snapshot() {
     project: cur.doc && {
       name: cur.doc.name,
       path: cur.path,
+      env: cur.env,
       dirty: isDirty(),
       note: cur.note,
       publishDir: publisher.resolveDir(cur.doc, cur.path),
@@ -94,7 +152,9 @@ function snapshot() {
 function pushState() {
   if (!win || win.isDestroyed()) return;
   const s = snapshot();
-  const title = s.project ? `${s.project.dirty ? '● ' : ''}${s.project.name} — ${APP_NAME}` : APP_NAME;
+  const title = s.project
+    ? `${s.project.dirty ? '● ' : ''}${s.project.name}${s.project.env ? ` [${s.project.env}]` : ''} — ${APP_NAME}`
+    : APP_NAME;
   win.setTitle(title);
   win.setDocumentEdited(!!(s.project && s.project.dirty));
   win.webContents.send('state', s);
@@ -334,7 +394,7 @@ async function poll() {
 }
 
 // ---------------------------------------------------------------- proje işlemleri
-async function loadDoc(doc, filePath, note, hash = null) {
+async function loadDoc(doc, filePath, note, hash = null, env = null, missing = []) {
   lastTagDevice = null;
   const url = requireFuxa();
   await api.setProject(url, doc.project);
@@ -349,7 +409,11 @@ async function loadDoc(doc, filePath, note, hash = null) {
   cur.ignoredHash = null;
   cur.diskBase = doc.project;
   cur.liveBase = loaded;
+  cur.env = env;
+  cur.missing = missing;
+  if (!cur.note && env) cur.note = envNote(env, missing);
   watchProjectFile(filePath);
+  buildMenu();
   editorWanted = true;
   win.webContents.send('show-tab', 'editor');
   await loadEditor();
@@ -400,11 +464,11 @@ async function openPath(p, { skipConfirm = false } = {}) {
     return;
   }
   if (!skipConfirm && !(await confirmDiscard('Başka proje açmadan'))) return;
-  const { doc, imported, hash } = fxprj.read(p);
+  const { doc, imported, hash, env, missing } = readDisk(p);
   if (imported) {
     await loadDoc(doc, null, `Proje JSON'u içe aktarıldı (${path.basename(p)}). Kaydet ile .fxprj olarak kaydet.`);
   } else {
-    await loadDoc(doc, p, null, hash);
+    await loadDoc(doc, p, null, hash, env, missing);
     addRecent(p);
   }
 }
@@ -452,12 +516,17 @@ async function saveProject(saveAs) {
   await flushEditor();
   const prj = await api.getProject(url);
   cur.doc.project = prj;
-  cur.diskHash = fxprj.write(target, cur.doc);
+  cur.diskHash = writeDisk(target, cur.doc, cur.env);
+  cur.missing = [];
   cur.ignoredHash = null;
   cur.diskBase = prj;
   cur.liveBase = prj;
-  if (!samePath(target, cur.path)) watchProjectFile(target);
+  const moved = !samePath(target, cur.path);
   cur.path = target;
+  if (moved) {
+    if (cur.env) setProjectPrefs(target, { env: cur.env });
+    watchProjectFile(target);
+  }
   cur.savedDigest = model.digest(prj);
   cur.liveDigest = cur.savedDigest;
   cur.metaDirty = false;
@@ -472,7 +541,7 @@ async function saveProject(saveAs) {
 // Değişiklik sormadan, öğe öğe uygulanır (sync.js): diskte değişen ekran/script/bağlantı
 // sunucuya tek tek gönderilir, editörde kaydedilmemiş başka öğeler korunur. Sadece aynı öğe
 // iki tarafta da değiştiyse sorulur.
-let fileWatcher = null;
+let fileWatchers = [];
 let watchTimer = null;
 let diskPrompting = false;
 
@@ -482,37 +551,62 @@ function samePath(a, b) {
   return process.platform === 'linux' ? x === y : x.toLowerCase() === y.toLowerCase();
 }
 
+function envDir() {
+  return cur.env && cur.path ? envs.resolveDir(cur.doc, cur.path) : null;
+}
+
+/** Diskteki .fxprj (+ etkin ortam dosyası) içeriğinin özeti; .fxprj yoksa null. */
+function diskHashNow() {
+  const h = fxprj.fileHash(cur.path);
+  if (!h || !cur.env) return h;
+  let text = '';
+  try { text = fs.readFileSync(envs.envFile(envDir(), cur.env), 'utf8'); } catch { /* yok */ }
+  return envs.combinedHash(h, text);
+}
+
 /** Dosya son okunuş/yazılıştan beri değişti mi? Silinmişse false (yeniden kaydetmek zararsız). */
 function externallyChanged() {
   if (!cur.path || !cur.diskHash) return false;
-  const h = fxprj.fileHash(cur.path);
+  const h = diskHashNow();
   return h !== null && h !== cur.diskHash;
 }
 
 function watchProjectFile(filePath) {
-  if (fileWatcher) { fileWatcher.close(); fileWatcher = null; }
+  for (const w of fileWatchers) w.close();
+  fileWatchers = [];
   clearTimeout(watchTimer);
   if (!filePath) return;
+  const changed = () => {
+    clearTimeout(watchTimer);
+    watchTimer = setTimeout(checkDisk, 700); // art arda yazmalar tek seferde
+  };
   // Dosya değil klasör izlenir: atomik kayıtlar (bizimki, git, Syncthing) dosyayı rename ile değiştirir.
+  const watch = (dir, onName) => {
+    try {
+      const w = fs.watch(dir, (_ev, name) => onName(name ? String(name).toLowerCase() : null));
+      w.on('error', () => {});
+      fileWatchers.push(w);
+    } catch { /* izlenemiyor (ör. klasör yok): Kaydet öncesi kontrol yine çalışır */ }
+  };
   const base = path.basename(filePath).toLowerCase();
-  try {
-    fileWatcher = fs.watch(path.dirname(filePath), (_ev, name) => {
-      if (name && String(name).toLowerCase() !== base) return;
-      clearTimeout(watchTimer);
-      watchTimer = setTimeout(checkDisk, 700); // art arda yazmalar tek seferde
+  watch(path.dirname(filePath), (name) => { if (!name || name === base) changed(); });
+  const dir = cur.env && cur.doc && envs.isSplit(cur.doc) ? envs.resolveDir(cur.doc, filePath) : null;
+  if (dir && !samePath(dir, path.dirname(filePath))) {
+    watch(dir, (name) => {
+      if (name && name.endsWith('.json')) buildMenu(); // ortam listesi
+      if (!name || name === `${cur.env}.json`.toLowerCase()) changed();
     });
-    fileWatcher.on('error', () => {});
-  } catch { /* izlenemiyor: Kaydet öncesi kontrol yine çalışır */ }
+  }
 }
 
 async function checkDisk() {
   if (!cur.path || !cur.diskHash || diskPrompting || !win) return;
   if (busy || polling) { watchTimer = setTimeout(checkDisk, 500); return; }
-  const h = fxprj.fileHash(cur.path);
+  const h = diskHashNow();
   if (h === null || h === cur.diskHash || h === cur.ignoredHash) return;
   let read;
   try {
-    read = fxprj.read(cur.path);
+    read = readDisk(cur.path, cur.env);
   } catch (e) {
     // Yazan taraf işini bitirmemiş olabilir; bir sonraki değişiklikte tekrar denenir.
     cur.note = `Diskteki dosya okunamadı: ${e.message}`;
@@ -542,7 +636,7 @@ async function pushProject(url, from, to) {
   return true;
 }
 
-async function applyDiskChange({ doc, hash }) {
+async function applyDiskChange({ doc, hash, missing }) {
   const url = requireFuxa();
   // Editörde sunucuya gitmemiş çizim düzenlemesi varsa önce aktar (sayaç anlık okunur).
   if (editorView && editorView.webContents.getURL().includes('/editor')) {
@@ -585,6 +679,7 @@ async function applyDiskChange({ doc, hash }) {
   cur.diskHash = hash;
   cur.ignoredHash = null;
   cur.diskBase = doc.project;
+  cur.missing = missing || [];
   cur.liveDigest = model.digest(after);
   if (kept.length || cur.metaDirty) {
     // Editördeki kaydedilmemiş öğeler korundu: proje kirli kalır.
@@ -627,8 +722,109 @@ async function reloadFromDisk({ confirm = true } = {}) {
     if (response !== 0) return;
   }
   const p = cur.path;
-  const { doc, hash } = fxprj.read(p);
-  await loadDoc(doc, p, 'Proje diskten yeniden yüklendi.', hash);
+  const { doc, hash, env, missing } = readDisk(p, cur.env);
+  await loadDoc(doc, p, envNote(env, missing) || 'Proje diskten yeniden yüklendi.', hash, env, missing);
+}
+
+// ---------------------------------------------------------------- bağlantı ortamları
+// Ayrık düzende (bkz. core/envs.js) bağlantı ayarları connections/<ortam>.json'dadır.
+// Ortam değiştirmek sadece cihazları değiştirir (set-device); ekranlar yeniden yüklenmez.
+
+async function switchEnv(name) {
+  if (!cur.doc || !cur.env || !cur.path || name === cur.env) return;
+  if (!(await confirmDiscard(`"${name}" ortamına geçmeden`))) return;
+  const discard = isDirty(); // "Kaydetme" seçildi
+  setProjectPrefs(cur.path, { env: name });
+  const disk = readDisk(cur.path, name);
+  const note = envNote(name, disk.missing) || `Bağlantı ortamı: ${name}`;
+  if (discard) {
+    await loadDoc(disk.doc, cur.path, note, disk.hash, disk.env, disk.missing);
+    return;
+  }
+  const url = requireFuxa();
+  const mine = await api.getProject(url);
+  const changed = await pushProject(url, mine, disk.doc.project);
+  const after = changed ? await api.getProject(url) : mine;
+  Object.assign(cur, {
+    doc: disk.doc, env: disk.env, missing: disk.missing, diskHash: disk.hash, ignoredHash: null,
+    diskBase: disk.doc.project, liveBase: after, note,
+  });
+  cur.savedDigest = cur.liveDigest = model.digest(after);
+  watchProjectFile(cur.path);
+  buildMenu();
+  if (changed && editorView && fuxaState.url && editorView.webContents.getURL().startsWith(fuxaState.url)) {
+    editorView.webContents.reload();
+  }
+}
+
+/** Eski düzenden geçiş: bağlantı ayarları connections/dev.json'a taşınır, proje kaydedilir. */
+async function separateConnections() {
+  if (!cur.doc || envs.isSplit(cur.doc)) return;
+  if (!cur.path) {
+    await message('info', 'Önce projeyi bir .fxprj dosyasına kaydet.');
+    return;
+  }
+  const name = 'dev';
+  const doc = { ...cur.doc, connections: { dir: envs.DEFAULT_DIR, default: name } };
+  const file = envs.envFile(envs.resolveDir(doc, cur.path), name);
+  if (fs.existsSync(file)) throw new Error(`${file} zaten var; üzerine yazılmadı.`);
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: APP_NAME,
+    message: 'Bağlantı ayarları ortam dosyasına taşınsın mı?',
+    detail: `Bağlantıların adres, port, açık/kapalı ve okuma aralığı ayarları ${path.relative(path.dirname(cur.path), file)} `
+      + 'dosyasına taşınır ve .fxprj\'den çıkarılır; ekranlar ve tag\'ler .fxprj\'de kalır. '
+      + 'Sonra Ayarlar → Bağlantı ortamı → Yeni ortam ile örneğin saha ortamını ekleyebilirsin.\n\n'
+      + 'Proje kaydedilir (kaydedilmemiş değişiklikler dahil).',
+    buttons: ['Taşı ve kaydet', 'İptal'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response !== 0) return;
+  cur.doc = doc;
+  cur.env = name;
+  setProjectPrefs(cur.path, { env: name });
+  if (await saveProject(false)) {
+    watchProjectFile(cur.path);
+    cur.note = `Bağlantı ayarları ${name}.json dosyasına taşındı.`;
+  }
+  buildMenu();
+}
+
+/** Etkin ortamın kaydedilmiş ayarlarından yeni ortam dosyası, sonra ona geç. */
+async function newEnv() {
+  if (!cur.doc || !cur.env || !cur.path) return;
+  const dir = envDir();
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: `Yeni bağlantı ortamı ("${cur.env}" ayarlarının kopyası)`,
+    defaultPath: path.join(dir, 'saha.json'),
+    buttonLabel: 'Oluştur',
+    filters: [{ name: 'Bağlantı ortamı', extensions: ['json'] }],
+  });
+  if (canceled || !filePath) return;
+  const name = path.basename(filePath).replace(/\.json$/i, '');
+  if (!samePath(path.dirname(filePath), dir)) throw new Error(`Ortam dosyası ${dir} klasöründe olmalı.`);
+  const file = envs.envFile(dir, name); // adı doğrular
+  if (fs.existsSync(file)) throw new Error(`"${name}" ortamı zaten var.`);
+  const { conn } = envs.read(dir, cur.env);
+  envs.write(dir, name, conn || envs.extract(cur.doc.project).conn);
+  await switchEnv(name);
+}
+
+function envMenu() {
+  if (!cur.doc || !cur.path) return [{ label: '(proje kaydedilmedi)', enabled: false }];
+  if (!cur.env) {
+    return [{ label: 'Bağlantı ayarlarını ortam dosyasına taşı…', click: () => guard(separateConnections)() }];
+  }
+  const dir = envDir();
+  const names = [...new Set([...envs.list(dir), cur.env])].sort((a, b) => a.localeCompare(b));
+  return [
+    ...names.map((n) => ({ label: n, type: 'radio', checked: n === cur.env, click: () => guard(() => switchEnv(n))() })),
+    { type: 'separator' },
+    { label: 'Yeni ortam…', click: () => guard(newEnv)() },
+    { label: 'Ortam klasörünü aç', click: () => shell.openPath(dir) },
+  ];
 }
 
 async function analyze() {
@@ -705,7 +901,18 @@ async function saveConnection(spec) {
 }
 
 // Publish: kaydedilmiş hali yazar. Kaydedilmemiş değişiklik varsa önce kaydetmek gerekir.
-async function publishPrepare() {
+/** Publish planı: ayrık düzende seçilen ortamın kaydedilmiş ayarlarıyla. */
+function publishPlan(env) {
+  if (!cur.env) return publisher.plan(cur.doc, cur.path);
+  const name = env || projectPrefs(cur.path).publishEnv || cur.env;
+  const disk = readDisk(cur.path, name);
+  return {
+    ...publisher.plan(disk.doc, cur.path, { env: name, missing: disk.missing }),
+    envs: [...new Set([...envs.list(envDir()), cur.env])].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+async function publishPrepare(env) {
   if (!cur.doc) return null;
   requireFuxa();
   await flushEditor();
@@ -723,10 +930,10 @@ async function publishPrepare() {
     });
     if (response !== 0 || !(await saveProject(false))) return null;
   }
-  return publisher.plan(cur.doc, cur.path);
+  return publishPlan(env);
 }
 
-async function publishChooseDir() {
+async function publishChooseDir(env) {
   if (!cur.doc || !cur.path) return null;
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: 'Publish klasörü',
@@ -741,14 +948,18 @@ async function publishChooseDir() {
   }
   cur.doc.publish = { ...(cur.doc.publish || {}), dir };
   // Klasör seçimi .fxprj'e yazılır; publish kaydedilmiş hali yazdığından burada hemen kaydet.
-  cur.diskHash = fxprj.write(cur.path, cur.doc);
-  return publisher.plan(cur.doc, cur.path);
+  cur.diskHash = writeDisk(cur.path, cur.doc, cur.env);
+  return publishPlan(env);
 }
 
-async function publishRun() {
+async function publishRun(env) {
   if (!cur.doc || !cur.path) return null;
   if (isDirty()) throw new Error('Kaydedilmemiş değişiklik var; önce kaydet.');
-  return publisher.publish(fxprj.read(cur.path).doc, cur.path);
+  if (!cur.env) return publisher.publish(fxprj.read(cur.path).doc, cur.path);
+  const name = env || cur.env;
+  const disk = readDisk(cur.path, name);
+  setProjectPrefs(cur.path, { publishEnv: name });
+  return { ...publisher.publish(disk.doc, cur.path, new Date(), { env: name, missing: disk.missing }), envs: publishPlan(name).envs };
 }
 
 /** Gömülü sayfayı aç; cihaz yönetimi kendi Bağlantılar sekmesinde gösterilir. */
@@ -833,6 +1044,8 @@ function buildMenu() {
       submenu: [
         { label: 'Bağlantılar ve tag yönetimi…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
         { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
+        { type: 'separator' },
+        { label: 'Bağlantı ortamı', submenu: envMenu() },
       ],
     },
     {
