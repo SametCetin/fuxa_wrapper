@@ -26,7 +26,7 @@ Düz JavaScript (CommonJS), derleme adımı yok.
   - `lint.js`: §7 "Tuzaklar"ın kural hali + kırık tag/script referansları.
   - `tags.js`: tag tablosu + kullanım yerleri; yeni tag (`buildTag`, `tagTypesFor`, `newTagId`).
   - `publish.js`: klasöre çıkarma (proje JSON + README), lint hatasında yazmaz.
-- `.vscode/`: `launch.json` (Debug, Release) ve `tasks.json` (Release).
+- `.vscode/`: `launch.json` (Debug, Release, Hızlı EXE) ve `tasks.json` (Release, Hızlı EXE).
 - `src/main/`: Electron ana süreci.
   - `main.js`: pencere, menü, IPC, proje işlemleri (yeni/aç/kaydet/publish), değişiklik takibi.
   - `fuxa.js`: gömülü FUXA sunucusu: Node ve FUXA'yı bul, boş portta başlat, hazır olmasını bekle, durdur.
@@ -34,7 +34,8 @@ Düz JavaScript (CommonJS), derleme adımı yok.
 - `src/preload.js`: arayüzün ana süreçle tek kapısı (`window.fxw`).
 - `src/renderer/splash.html` + `splash.css`: açılış penceresi (betiksiz). `main.js` → `createSplash` / `revealMain` (en az 1,2 sn görünür; açılışta verilen `.fxprj` ana pencere görünmeden yüklenir).
 - `src/renderer/`: pencere arayüzü (Editör/Taglar/Kontrol sekmeleri; komutlar sadece menüde, ayrıca düğme yok; karşılama ekranı, Publish ve Yeni tag pencereleri). Metinler DOM'a hep `textContent` ile basılır (`el()`); `innerHTML` kullanma (proje/tag/dosya adları dışarıdan gelir).
-- `fuxa-runtime/package.json`: uygulamayla gelen FUXA sürümü (sabit `1.3.4`). `npm install` sonrası `postinstall` kurar.
+- `fuxa-runtime/package.json`: uygulamayla gelen FUXA sürümü (sabit `1.3.4`) ve özgün ADS sürücüsünün `ads-client` bağımlılığı (sabit `2.1.0`). `npm install` sonrası `postinstall` kurar.
+- `integrations/native-ads/`: uygulamayla gelen offline ADS eklentisi; `index.js` başlatıcı adaptörü, `adsclient/` sürücü ve Windows yerel köprüsü. Orijinal editör paketinin dosyaları değiştirilmez. Başlatıcı varsayılan eklentilerin ardından `loadPlugin("FuxawADS", ...)` ile sürücüyü ayrı yuvaya kaydeder; `device-loader.js` cihaz yöneticisini require öncesinde bellekte genişletir ve özgün `ADSclient` sürücüsüne dokunmaz; Eklenti kayıt/listesi ile kurma/kaldırma işlemleri yalnızca süreç belleğinde uyarlanır; Özgün `ads-client` ve uygulamayla gelen `@fuxaw/ads-plugin` ayrı kartlar/türlerdir. Bizim eklentinin çevrimdışı kur/kaldır seçimi userData altındaki `fuxaw-ads-plugin.json` dosyasında tutulur; kaldırma etkin bağlantılarını keser. `editor.js`, servis edilen ana betiğe standart ADS formunda yöntem seçimi ve `adsTransport` alanının kayıtta korunmasını ekler. Bu yükleme noktaları yeni bileşen sürümünde doğrulanmalı. `npm run install:ads` bağımlılıkları kurar, `npm run setup:ads` yerel köprüyü hazırlar. Paket: `resources/plugins/native-ads` (bağımlılıkları dahil).
 - `scripts/fetch-node.js`: kurulum paketine konacak Node.js'i `vendor/node/`'a indirir (sabit sürüm, SHA256 doğrulamalı).
 - `package.json` → `build`: electron-builder ayarları (NSIS / AppImage+deb / dmg, `.fxprj` dosya ilişkilendirme).
 
@@ -46,10 +47,11 @@ npm start            # geliştirme: PATH'teki (veya vendor/) Node ile FUXA'yı b
 npm start -- C:\yol\proje.fxprj
 npm test             # node --test: çekirdek modüller (FUXA/Electron gerekmez)
 npm run dist:dir     # dist/win-unpacked (kurulumsuz deneme)
+npm run dist:fast    # dist/fast/win-unpacked (Windows x64, imzasız; NSIS yok)
 npm run dist         # kurulum paketi (Windows'ta NSIS)
 ```
 
-VS Code (kullanıcı isteği: sadece iki giriş): Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`) ve **Release** (`npm run dist`). `tasks.json`: Ctrl+Shift+B = Release. Proje uygulamanın içinden açılır.
+VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
 Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 19 test geçiyor (2026-10-02).
 
@@ -66,7 +68,8 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
 - Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) **Aç** ile içe aktarılır; ilk kayıtta `.fxprj` yolu sorulur.
 - **Değişiklik takibi:** her 1,5 sn FUXA'daki projenin özeti dosyadakiyle karşılaştırılır + editördeki bekleyen düzenleme sayısı (§4). Kaydedilmemiş değişiklik varsa başlıkta `●`, Yeni/Aç/Kapat'ta "Kaydet / Kaydetme / İptal" sorulur.
 - **Publish** kaydedilmiş hali yazar; kaydedilmemiş değişiklik varsa önce kaydettirir. Önce plan (klasör, dosyalar, lint) gösterilir; lint HATA varsa yazmaz. Çıktı: `<publish.dir>/<ad>/<ad>.json` + `README.md` (hedef makinede ☰ → *Open Project*, önce *Save Project As* ile yedek, cihaz/tag özeti).
-- **Yeni tag** (Taglar sekmesi): cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri), açıklama. `core/tags.js` → `buildTag` editörün biçimini üretir (ADS: tip `Boolean/Number/String` + adres; FuxaServer/internal: küçük harfli tip + `init` + `label`; diğer cihazlarda cihazdaki mevcut tipler). Ekleme: editör flush → `GET` → `set-device` (cihaz bağlantısı bir an kopar) → editör yeniden yüklenir (bellekteki eski cihaz kopyası yeni tag'i ezmesin). Dosyaya yazmak için kaydetmek gerekir.
+- **Tag ekleme/düzenleme/silme** özgün Taglar ekranından yapılır; `.fxprj` dosyasına yazmak için Kaydet gerekir. Çekirdek `buildTag`, `tag:add` ve `tag:delete` API'leri korunur; ayrı düzenleme tablosu kullanılmaz.
+- **Çekirdek tag silme API'si:** flush → GET → `prepareTagRemoval` → kullanım uyarılı onay → set-device → editörü yeniden yükleme. Özgün editörün silme işlemi kendi akışını kullanır; bu çekirdek API uyarısıyla aynı davranışı sağladığı varsayılmamalı.
 - Yeni proje "Adsız" açılır; ilk kayıtta dosya adı proje adı olur.
 - Tek örnek (single instance): ikinci açılış (ör. `.fxprj`'e çift tıklama) mevcut pencerede açar.
 - Son projeler: `<userData>/recent.json` (en fazla 10).
@@ -82,8 +85,11 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
 - **Editör çizim değişikliklerini sunucuya kendiliğinden göndermez**, kendi "Save Project"ine veya ekran değişimine kadar tutar. Bu yüzden:
   - Bekleyen düzenlemeler, svg-edit'in `undoMgr.addCommandToHistory`'sine bağlanan sayaçla (`window.__fxw.edits`) izlenir.
   - Kaydet'ten önce gizli menüdeki "Save Project" programla tıklanır (`flushEditor`; menü katmanı o an `opacity: 0`).
+  - HTML kontrolünün width/height alanında yazılan değer, çizim alanının `mousedown` işlemi odağın değişmesini engellediği için seçim değişirken kaybolabilir. `editorDimensions.js` bu alanları seçim değişmeden önce editörün kendi `change` işlemiyle uygular; `flushEditor` de Kaydet öncesinde bekleyen boyutu uygular. Boyut alanları en fazla iki ondalık basamak gösterir (`80.00006` → `80`); bu gösterim düzeltmesi SVG geometrisini değiştirmez. Enter/Tab, geri alma ve kaydedip yeniden yükleme akışları korunur.
   - FUXA sürümü değişirse bu seçiciler (`button[title="Save Project"]`, `.mat-mdc-menu-item`, `svgEditor.canvas.undoMgr`) kontrol edilmeli.
-- **Ayarlar** menüsü (Ctrl+4 / Ctrl+5) aynı görünümde FUXA'nın `/device` (Connections settings) ve `/plugins` (Server Plugins) sayfalarını açar (`main.js` → `showEditorPage`). `/editor`'dan ayrılmadan önce `flushEditor` çalışır (bekleyen çizimler kaybolmasın). Proje → Editör (Ctrl+1) görünüm başka sayfadaysa `/editor`'a geri yükler.
+  - Tag seçicisindeki metni boşaltmak eski tag kimliğini tutuyordu. `editorTagClear.js` başlatıcıda yalnız servis edilen ana betiği bellekte düzeltir; iki seçicide boş alan `variableId`'yi kaldırır. Orijinal paket dosyaları değişmez, arama metni yazmak mevcut bağlantıyı bozmaz. Düzeltme 1.3.4 ve beklenen iki kod noktasıyla sınırlıdır; sürüm değişiminde doğrulanmalıdır.
+- **Sekmeler:** Editör çizimi, Taglar doğrudan özgün `/device` tag tablosunu, Bağlantılar özgün cihaz şemasını açar. Ctrl+1/2/4 aynı akışları kullanır. `editorDevices.js` (1.3.4 DOM kontrolleri) şema/tag tablosu arasında geçer; ilk girişte ilk harici cihazı, yoksa sunucu içi cihazı seçer. Son cihaz adı aynı proje açıkken hatırlanır, yeni/açılan projede sıfırlanır. Hedef cihazın DOM’a yüklenmesi beklenir. Kontrol → Proje kontrolü lint, Kontrol → Tag kullanımları arama/cihaz/kullanılmayan filtresi ve kullanım yerlerini gösterir. ADS ayarları özgün bağlantı ekleme/düzenleme penceresindedir: Type → ADS (fuxaw), Bağlantı yöntemi → Yerel TwinCAT / ADS-TCP. Type → ADSclient (orijinal) özgün sürücü/formu kullanır. Ayrı ADS formu ve menü girişi yoktur. `/editor`'dan ayrılmadan `flushEditor` çalışır. `show-tab` bildirimi yeniden navigasyon başlatmaz. Ctrl+5 `/plugins` sayfasını açar. Kontrol yanındaki Scriptler sekmesi ve Proje → Scriptler (Ctrl+6) özgün `/scripts` sayfasını açar; aynı gömülü görünüm `scriptsHost` sınırlarına yerleşir.
+- **Özellik koruma:** uygulamanın ek arayüzü, özgün editördeki cihaz/tag yönetiminin yerini eksik bir uygulamayla almamalı. Yeni özellikler tam yönetimin üzerine eklenir; ADS yöntem seçimi özgün forma eklenir; `ADSclient` özgün sürücü için korunur, bizim eklenti `FuxawADS` türündedir. Eski `.fxprj` veya JSON açılırken yalnız `ADSclient` + açık `adsTransport` (native/tcp) cihazları `FuxawADS` türüne geçirilir; cihaz kimliği/tag/veri alanları korunur.
 - Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
 - Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
 
@@ -134,6 +140,6 @@ Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.js`'ye kural ve `tests
 
 1. Masaüstü uygulaması iskeleti ✅ (2026-10-02): pencere + menü, Yeni/Aç/Kaydet/Farklı Kaydet/Son Projeler, `.fxprj`, gömülü FUXA + editör, değişiklik takibi, Publish (klasöre), Taglar, Kontrol (lint), runtime önizleme, Windows paketi (`dist:dir`) denendi.
 2. Paket: uygulama simgesi, NSIS kurulum paketini dene, Linux/macOS'ta derle ve dene, paket boyutunu küçült (FUXA'nın kullanılmayan bağımlılıkları; şu an açık hali ~675 MB).
-3. Tag düzenleme (ekleme ✅ 2026-10-02; yeniden adlandır, adres değiştir, sil; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
+3. Tag düzenleme (ekleme ✅ 2026-10-02, silme ✅ 2026-10-06; yeniden adlandır, adres değiştir; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
 4. Çökme sonrası kurtarma (FUXA veri klasöründe kalan kaydedilmemiş hali önerme).
 5. TwinCAT değişken seçici (GVL'den), ek lint kuralları.

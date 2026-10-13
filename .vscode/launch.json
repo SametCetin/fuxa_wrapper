@@ -1,9 +1,21 @@
 {
-  // Listede sadece iki giriş var:
+  // Paketleme seçenekleri:
   //   Debug   = uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır (proje uygulamadan açılır)
   //   Release = kurulum paketini dist/ altına üretir (npm run dist)
+  //   Hızlı EXE = imzalamadan kurulumsuz Windows klasörü üretir (npm run dist:fast)
   "version": "0.2.0",
   "configurations": [
+    {
+      "name": "Hızlı EXE",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dist:fast"],
+      "noDebug": true,
+      "console": "integratedTerminal",
+      "presentation": { "order": 3 }
+    },
     {
       "name": "Release",
       "type": "node",

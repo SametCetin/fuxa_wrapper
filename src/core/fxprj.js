@@ -51,6 +51,17 @@ function isFuxaProject(obj) {
   return obj && typeof obj === 'object' && obj.hmi && typeof obj.hmi === 'object';
 }
 
+// Earlier wrapper releases stored the plugin method under the original type.
+// The explicit method is our marker; ordinary original ADS projects stay as-is.
+function migrateAdsPlugin(project) {
+  for (const device of Object.values(project.devices || {})) {
+    if (device.type === 'ADSclient' && ['native', 'tcp'].includes(device.property?.adsTransport)) {
+      device.type = 'FuxawADS';
+    }
+  }
+  return project;
+}
+
 /** Dosya içeriğinden belge: {doc, imported}. imported = düz FUXA JSON'du. */
 function parse(text, fileName = '') {
   let obj;
@@ -69,14 +80,14 @@ function parse(text, fileName = '') {
       name: obj.name || obj.project.name || path.basename(fileName, EXT),
       fuxaVersion: obj.fuxaVersion || FUXA_VERSION,
       publish: { dir: 'publish', ...(obj.publish || {}) },
-      project: obj.project,
+      project: migrateAdsPlugin(obj.project),
     };
     return { doc, imported: false };
   }
   if (isFuxaProject(obj)) {
     const name = obj.name || path.basename(fileName, path.extname(fileName)).replace(/_live$/, '');
     const doc = newDoc(name);
-    doc.project = obj;
+    doc.project = migrateAdsPlugin(obj);
     return { doc, imported: true };
   }
   throw new FxprjError(`${fileName}: .fxprj ya da proje JSON dosyası değil`);

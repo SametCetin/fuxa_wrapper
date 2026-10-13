@@ -8,10 +8,11 @@ async function probe() {
     const projectFile = arg('--project');
     if (!projectFile) throw new Error('Kullanım: npm run probe:ads -- --project <proje.fxprj>');
     const project = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
-    const device = Object.values((project.project || project).devices).find(device => device.type === 'ADSclient');
+    const devices = Object.values((project.project || project).devices);
+    const device = devices.find(device => device.type === 'FuxawADS') || devices.find(device => device.type === 'ADSclient');
     if (!device) throw new Error('No ADS device in project.');
     const [netId, port] = device.property.address.split(':');
-    const modulePath = arg('--ads-module') || path.join(process.env.APPDATA || '', 'fuxaw', 'fuxa', '_pkg', 'runtime', 'node_modules', 'ads-client');
+    const modulePath = arg('--ads-module') || path.join(__dirname, 'node_modules', 'ads-client');
     const ads = require(path.resolve(modulePath));
     const Client = createNativeClient(ads);
     const client = new Client({ targetAmsNetId: netId, targetAdsPort: Number(port) || device.property.port || 851 });

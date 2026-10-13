@@ -3,10 +3,10 @@
  */
 
 'use strict';
-var ads;
-var utils = require('../../utils');
-const deviceUtils = require('../device-utils');
 const { createNativeClient } = require('./native/client');
+
+// Engine services are supplied by the host; this package never replaces engine files.
+function createDriver({ utils, deviceUtils, ads }) {
 
 function ADSclient(_data, _logger, _events, _runtime) {
 
@@ -316,11 +316,14 @@ function ADSclient(_data, _logger, _events, _runtime) {
         const tags = Object.values(data.tags || {});
         _mapTopicsAddress(tags);
         const topics = [...new Set(tags.map(tag => tag.address))];
+        // Use the device's polling interval for both TCP notifications and native reads.
+        const polling = Number(data.polling);
+        const cycleTime = Number.isInteger(polling) && polling >= 50 && polling <= 3600000 ? polling : 1000;
         const errors = [];
         let subscribed = 0;
         for (const topic of topics) {
             try {
-                await client.subscribeValue(topic, _onChange, 1000, false);
+                await client.subscribeValue(topic, _onChange, cycleTime, false);
                 subscribed++;
             } catch (err) {
                 errors.push(err);
@@ -459,21 +462,12 @@ function ADSclient(_data, _logger, _events, _runtime) {
     }
 }
 
-module.exports = {
+const driver = {
     init: function (settings) {
     },
     create: function (data, logger, events, manager, runtime) {
-        if (!loadAdsLib(manager)) return null;
         return new ADSclient(data, logger, events, runtime);
     }
-}
-
-function loadAdsLib(manager) {
-    if (!ads) {
-        try { ads = require('ads-client'); } catch { }
-        if (!ads && manager) { try { ads = manager.require('ads-client'); } catch { } }
-    }
-    return !!ads;
 }
 
 const Datatypes = {
@@ -487,3 +481,8 @@ function AdsSymbol(name) {
     this.type = '';
     this.value = '';
 }
+
+return driver;
+}
+
+module.exports = { createDriver };

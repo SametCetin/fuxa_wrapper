@@ -16,9 +16,10 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
+| Proje → Scriptler (Ctrl+6) | Gömülü script yönetimini doğrudan açar |
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
-| Ayarlar → Bağlantılar (cihazlar)… (Ctrl+4) | Editörün bağlantı ayarları sayfası (PLC/cihaz bağlantıları) |
-| Ayarlar → Sunucu eklentileri… (Ctrl+5) | Editörün sunucu eklentileri sayfası (ör. `ads-client`); Ctrl+1 çizim editörüne döner |
+| Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
+| Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
 
@@ -27,8 +28,17 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 **Sekmeler:**
 
 - **Editör:** FUXA editörü (ekranlar, cihazlar, tag'ler, script'ler). Editörün kendi ☰ proje menüsü gizlidir; kaydetme/açma uygulamanın Dosya menüsünden yapılır.
-- **Taglar:** tüm tag'ler; arama, cihaz filtresi, "kullanılmayanlar". Kullanım sayısına tıklayınca tag'in hangi ekran öğesinde, hangi event'te ya da script'te kullanıldığı görünür. **Yeni tag**: cihaz, ad, tip, adres (sunucu içi cihazda başlangıç değeri) ve açıklama ile tag ekler; tag hemen eklenir (cihaz bağlantısı bir an kopar), dosyaya yazmak için kaydet. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
-- **Kontrol:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
+- **Taglar:** doğrudan gömülü editörün tag tablosu; ekleme, düzenleme, silme, arama, canlı değer ve zaman damgası. İlk girişte ilk PLC/harici cihaz, yoksa sunucu içi cihaz açılır. Son seçilen bağlantı aynı proje açıkken hatırlanır; yeni/açılan projede sıfırlanır. Değişiklikleri `.fxprj` dosyasına yazmak için Dosya → Kaydet kullan.
+- **Scriptler:** Kontrol sekmesinin yanından veya Ctrl+6 ile doğrudan script yönetimine geç.
+- **Kontrol → Proje kontrolü:** bilinen FUXA tuzakları (ör. Boolean ADS tag'ine *Toggle value*) ve kırık tag/script referansları. HATA varsa publish yapılmaz.
+- **Kontrol → Tag kullanımları:** tüm tag'lerde arama, cihaz ve kullanılmayanlar filtresi. Kullanım sayısı ekran öğesi, event ve script referanslarını gösterir. **Kopyala** görünen satırları Excel'e yapıştırılabilir biçimde kopyalar.
+- **Bağlantılar:** özgün cihaz şeması, bağlantı düzenleme ve içe/dışa aktarma. Yeni bağlantıda **Type → ADS (fuxaw)** seç; aynı penceredeki **Bağlantı yöntemi** alanında **Yerel TwinCAT (Windows)** veya **ADS-TCP** kullan. **ADSclient (orijinal)** özgün `ads-client` sürücüsünü, **ADS (fuxaw)** ayrı `@fuxaw/ads-plugin` sürücüsünü kullanır. İki eklenti Sunucu eklentileri sayfasında ayrı görünür. Bizim eklenti bu sayfadan çevrimdışı kaldırılıp yeniden kurulabilir; seçim uygulama yeniden başlatılınca korunur. Editör sekmesi çizim ekranına döner.
+
+### ADS okuma aralığı
+
+Bağlantılar → ADS cihazının kalem simgesi → **Polling** alanını örneğin `100 ms` yapıp **OK**'e bas. Bu değer hem ADS / TCP aboneliğinin örnekleme süresini hem Yerel TwinCAT okuma süresini belirler; arayüze aktarım döngüsü de aynı cihaz ayarını kullanır. **OK** cihazı yeniden bağlar; Dosya → Kaydet ayarı `.fxprj`'e yazar.
+
+Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüsünü ayarlar; ADS cihazının süresini değiştirmez. Yerel TwinCAT okumalarında işlem süresi seçilen aralığa eklenir; 100 ms kesin zaman garantisi değildir. Bu düzeltme uygulamayla gelen ADS eklentisindedir; Publish ile JSON aktarılan bağımsız sunucunun sürücüsünü değiştirmez.
 
 ### Publish çıktısı
 
@@ -59,10 +69,11 @@ npm install        # Electron + paketleyici; FUXA'yı fuxa-runtime/ altına kura
 npm start          # uygulamayı geliştirme modunda açar
 npm test           # çekirdek testler
 npm run dist:dir   # kurulumsuz paket: dist/win-unpacked/fuxaw.exe
+npm run dist:fast  # imzalamadan hızlı Windows paketi: dist/fast/win-unpacked/fuxaw.exe
 npm run dist       # kurulum paketi
 ```
 
-VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır; proje uygulamadan açılır) ve **Release** (kurulum paketi, `dist/`). Ctrl+Shift+B = Release.
+VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır; proje uygulamadan açılır), **Release** (kurulum paketi, `dist/`) ve **Hızlı EXE** (imzasız, kurulumsuz Windows x64 paketi, `dist/fast/win-unpacked/fuxaw.exe`). Ctrl+Shift+B = Release; diğer derleme görevleri arasından Hızlı EXE de seçilebilir. Hızlı EXE, NSIS ve imzalama adımlarını atlar; çalıştırmak/taşımak için tüm `win-unpacked` klasörü gerekir.
 
 Geliştirmede Node.js 22+ gerekir (FUXA'yı da o çalıştırır). Paket için `scripts/fetch-node.js` sabit sürüm Node.js'i `vendor/node/`'a indirir.
 
@@ -76,7 +87,7 @@ Yönetilen projeler ayrı repoda: `C:\sct\syncthing\sc_genel\fuxa_projects` (ör
 fuxa_wrapper/
 ├─ README.md / AGENTS.md / CLAUDE.md
 ├─ package.json             ← Electron uygulaması + electron-builder ayarları
-├─ .vscode/                 ← Debug ve Release (launch.json, tasks.json)
+├─ .vscode/                 ← Debug, Release ve Hızlı EXE (launch.json, tasks.json)
 ├─ src/
 │  ├─ core/                 ← model, fxprj, lint, tags, publish (Electron'dan bağımsız, testli)
 │  ├─ main/                 ← ana süreç: main.js, fuxa.js (gömülü FUXA), fuxaApi.js
@@ -98,4 +109,4 @@ fuxa_wrapper/
 
 ## TwinCAT 4026 UM bağlantısı
 
-Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe geliştirilir. Gömülü editör bileşenine kurulum ve paketleme sırasında uygulanır; başka bir kaynak deposuna ihtiyaç duymaz. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
+Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe bağımsız bir eklentidir. Orijinal editör paketinin dosyaları değiştirilmez; eklenti uygulamayla birlikte gelir ve başlangıçta çevrimdışı yüklenir. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).

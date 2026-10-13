@@ -73,26 +73,34 @@ function renderRecent(list) {
 
 // ---------------------------------------------------------------- gömülü editör (ana süreçte ayrı görünüm)
 function syncEditor() {
-  const visible = !!state.project && activeTab === 'editor' && !modalOpen;
+  const visible = !!state.project && ['editor', 'connections', 'tags', 'scripts'].includes(activeTab) && !modalOpen;
   window.fxw.editorVisible(visible);
   if (visible) sendBounds();
 }
 
 function sendBounds() {
-  const r = $('editorHost').getBoundingClientRect();
+  const r = $(activeTab === 'scripts' ? 'scriptsHost' : activeTab === 'tags' ? 'tagsHost' : activeTab === 'connections' ? 'connectionsHost' : 'editorHost').getBoundingClientRect();
   window.fxw.editorBounds({ x: r.left, y: r.top, width: r.width, height: r.height });
 }
 
-new ResizeObserver(() => { if (activeTab === 'editor') sendBounds(); }).observe($('editorHost'));
-window.addEventListener('resize', () => { if (activeTab === 'editor') sendBounds(); });
+const hostObserver = new ResizeObserver(() => { if (['editor', 'connections', 'tags', 'scripts'].includes(activeTab)) sendBounds(); });
+hostObserver.observe($('editorHost'));
+hostObserver.observe($('connectionsHost'));
+hostObserver.observe($('tagsHost'));
+hostObserver.observe($('scriptsHost'));
+window.addEventListener('resize', () => { if (['editor', 'connections', 'tags', 'scripts'].includes(activeTab)) sendBounds(); });
 
 // ---------------------------------------------------------------- sekmeler
-function showTab(tab) {
+function showTab(tab, navigate = true) {
+  if (navigate && state.project && ['editor', 'connections', 'tags', 'scripts'].includes(tab)) {
+    window.fxw.editorPage(tab === 'connections' ? 'device' : tab);
+    return;
+  }
   activeTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('active', p.id === `pane-${tab}`));
   syncEditor();
-  if ((tab === 'tags' || tab === 'lint') && state.project) refreshAnalysis();
+  if (tab === 'lint' && state.project) refreshAnalysis();
 }
 
 document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -192,87 +200,16 @@ $('btnTagCopy').addEventListener('click', async () => {
   $('statusText').textContent = `${rows.length} tag panoya kopyalandı`;
 });
 
-// ---------------------------------------------------------------- yeni tag
-function deviceLabel(d) {
-  return d.internal ? `${d.name} (sunucu içi)` : `${d.name} (${d.type})`;
-}
-
-async function showAddTag(prefill = {}) {
-  if (!analysis) await refreshAnalysis();
-  const devices = (analysis && analysis.devices) || [];
-  if (!devices.length) {
-    openModal('Yeni tag', [el('p', { text: 'Projede cihaz yok. Önce Editör sekmesinde bir bağlantı (cihaz) ekle.' })],
-      [{ label: 'Tamam', primary: true, onclick: closeModal }]);
-    return;
-  }
-  const filtered = devices.find((d) => d.name === $('tagDevice').value);
-  const initial = devices.find((d) => d.id === prefill.deviceId) || filtered
-    || devices.find((d) => !d.internal) || devices[0];
-
-  const device = el('select', { id: 'ntDevice' }, ...devices.map((d) => el('option', { value: d.id, text: deviceLabel(d) })));
-  const name = el('input', { id: 'ntName', type: 'text', autocomplete: 'off' });
-  const type = el('select', { id: 'ntType' });
-  const address = el('input', { id: 'ntAddress', type: 'text', autocomplete: 'off', placeholder: 'ör. GVL.Motor1.Start' });
-  const init = el('input', { id: 'ntInit', type: 'text', autocomplete: 'off' });
-  const desc = el('input', { id: 'ntDesc', type: 'text', autocomplete: 'off' });
-  const errBox = el('ul', { class: 'form-errors' });
-  const addrRow = [el('label', { for: 'ntAddress', text: 'Adres' }), address];
-  const initRow = [el('label', { for: 'ntInit', text: 'Başlangıç değeri' }), init];
-
-  function syncDevice() {
-    const d = devices.find((x) => x.id === device.value);
-    const prev = type.value;
-    type.replaceChildren(...d.types.map((t) => el('option', { value: t, text: t })));
-    if (d.types.includes(prev)) type.value = prev;
-    addrRow.forEach((e) => { e.hidden = d.internal; });
-    initRow.forEach((e) => { e.hidden = !d.internal; });
-  }
-  device.value = initial.id;
-  name.value = prefill.name || '';
-  address.value = prefill.address || '';
-  desc.value = prefill.description || '';
-  syncDevice();
-  if (prefill.type) type.value = prefill.type;
-  device.addEventListener('change', syncDevice);
-
-  async function save() {
-    const res = await window.fxw.addTag({
-      deviceId: device.value, name: name.value, type: type.value,
-      address: address.value, init: init.value, description: desc.value,
-    });
-    if (!res) return;
-    if (res.errors) {
-      errBox.replaceChildren(...res.errors.map((m) => el('li', { text: m })));
-      name.focus();
-      return;
-    }
-    analysis = res.analysis || analysis;
-    renderLint();
-    renderTags();
-    closeModal();
-    $('statusText').textContent = `"${res.tag.name}" eklendi (kaydetmeyi unutma)`;
-  }
-
-  const form = el('div', { class: 'form' },
-    el('label', { for: 'ntDevice', text: 'Cihaz' }), device,
-    el('label', { for: 'ntName', text: 'Ad' }), name,
-    el('label', { for: 'ntType', text: 'Tip' }), type,
-    ...addrRow, ...initRow,
-    el('label', { for: 'ntDesc', text: 'Açıklama' }), desc);
-  form.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
-
-  openModal('Yeni tag', [
-    form,
-    errBox,
-    el('p', { class: 'muted small', text: 'Tag cihaza hemen eklenir; cihazın bağlantısı bir an kopup yeniden kurulur. Dosyaya yazmak için kaydet.' }),
-  ], [
-    { label: 'İptal', onclick: closeModal },
-    { label: 'Ekle', primary: true, onclick: save },
-  ]);
-  name.focus();
-}
-
-$('btnTagAdd').addEventListener('click', () => showAddTag());
+// ---------------------------------------------------------------- kontrol alt görünümleri
+document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => {
+  const tags = button.dataset.control === 'tags';
+  $('control-tags').hidden = !tags;
+  $('control-lint').hidden = tags;
+  document.querySelectorAll('[data-control]').forEach(b => {
+    b.classList.toggle('primary', b === button);
+    b.setAttribute('aria-pressed', String(b === button));
+  });
+}));
 
 // ---------------------------------------------------------------- modal
 function openModal(title, bodyNodes, buttons) {
@@ -356,7 +293,7 @@ window.fxw.onCommand((cmd) => {
 });
 window.fxw.onShowTab((tab) => {
   if (modalOpen) closeModal();
-  showTab(tab);
+  showTab(tab, false);
 });
 window.fxw.onState(render);
 window.fxw.state().then(render);
