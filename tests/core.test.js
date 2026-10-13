@@ -120,16 +120,19 @@ test('.fxprj yaz/oku: proje aynı kalır, uçucu alanlar yazılmaz', () => {
   const doc = fxprj.newDoc('p1');
   doc.project = live();
   fxprj.write(file, doc);
-  const text = fs.readFileSync(file, 'utf8');
+  const devText = fs.readFileSync(path.join(dir, 'devices', 'tc3_ads.json'), 'utf8');
   // (Ekran event'lerindeki variableRaw kopyası FUXA'nın proje verisidir; ona dokunulmaz.)
-  const savedTags = Object.values(JSON.parse(text).project.devices[DEV].tags);
+  const savedTags = Object.values(JSON.parse(devText).tags);
   assert.ok(savedTags.every((t) => !('value' in t) && !('timestamp' in t)));
-  assert.ok(!text.includes('\r\n'));
+  for (const f of fs.readdirSync(dir, { recursive: true })) {
+    const full = path.join(dir, f);
+    if (fs.statSync(full).isFile()) assert.ok(!fs.readFileSync(full, 'utf8').includes('\r\n'), f);
+  }
   const back = fxprj.read(file);
   assert.equal(back.imported, false);
   assert.equal(back.doc.name, 'p1');
   assert.equal(model.digest(back.doc.project), model.digest(doc.project));
-  assert.deepEqual(fs.readdirSync(dir), ['p1.fxprj']); // geçici dosya kalmaz
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['devices', 'p1.fxprj', 'scripts', 'views']); // geçici dosya kalmaz
 });
 
 test('.fxprj içerik özeti: dışarıdan değişiklik tespit edilir', () => {

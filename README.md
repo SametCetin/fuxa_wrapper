@@ -2,7 +2,7 @@
 
 FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kaydeder. Windows, Linux ve macOS'ta çalışır (Electron).
 
-- **Proje = tek `.fxprj` dosyası** (girintili JSON; git'te farkı okunur).
+- **Proje = bir klasör:** `.fxprj` + ekran, bağlantı ve script başına ayrı dosyalar. Ekran çizimi `.svg`, script kodu `.js`; git farkı satır satır okunur, bir AI ajanı tek bir ekranı ya da script'i doğrudan düzenleyebilir.
 - Ekranlar pencerenin içindeki **FUXA editöründe** tasarlanır. FUXA 1.3.4 ve Node.js uygulamanın içinde gelir; ayrıca bir şey kurmak gerekmez.
 - **Publish** projeyi hedef makine için bir **klasöre** yazar (proje JSON + ne yapılacağını anlatan README). Ağ üzerinden hiçbir yere bir şey gönderilmez; klasör elle taşınır.
 
@@ -11,9 +11,9 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Menü / kısayol | Ne yapar |
 | -------------- | -------- |
 | Dosya → Yeni Proje (Ctrl+N) | Boş proje ("Adsız"); ilk kayıtta dosya adı sorulur |
-| Dosya → Proje Aç… (Ctrl+O) | `.fxprj` açar. Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) içe aktarılır |
+| Dosya → Proje Aç… (Ctrl+O) | `.fxprj` açar. Eski tek dosya `.fxprj` ve düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) içe aktarılır; ilk kayıtta proje klasörüne yazılır |
 | Dosya → Son Projeler | Son açılan 10 proje |
-| Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar. Dosya açıldıktan sonra diskte değiştiyse (git, Syncthing…) üzerine yazmadan önce sorar |
+| Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali proje klasörüne yazar (sadece değişen dosyalar). Dosya açıldıktan sonra diskte değiştiyse (git, Syncthing…) üzerine yazmadan önce sorar |
 | Dosya → Diskten yeniden yükle | `.fxprj`'i diskten baştan yükler (normalde gerekmez, aşağıya bkz.) |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
@@ -53,17 +53,22 @@ Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüs
 
 Publish klasörü varsayılan olarak `.fxprj`'in yanındaki `publish/`; Publish penceresinden değiştirilir ve `.fxprj`'e kaydedilir.
 
-## `.fxprj` biçimi
+## Proje klasörü
 
-```json
-{
-  "fxprj": 1,
-  "name": "fuxa1",
-  "fuxaVersion": "1.3.4",
-  "publish": { "dir": "publish" },
-  "project": { "...": "FUXA projesi (tag value/timestamp olmadan)" }
-}
 ```
+fuxa1/
+├─ fuxa1.fxprj             ad, publish klasörü, öğe sırası, layout ve geri kalan ayarlar
+├─ views/Ana Ekran.json    ekran öğeleri
+├─ views/Ana Ekran.svg     çizim
+├─ devices/PLC1.json       bağlantı + tag'leri
+├─ scripts/Hesapla.json    script ayarları
+├─ scripts/Hesapla.js      script kodu
+└─ publish/                Publish çıktısı
+```
+
+- Dosyalar içlerindeki `id` ile eşlenir; ekranın adı değişince dosya adı da değişir. Yeni dosya eklemek yeni öğe, dosyayı silmek öğeyi silmek demektir.
+- Uygulama açıkken bu dosyalardan biri dışarıda değişirse (AI ajanı, git, Syncthing) değişiklik editöre kendiliğinden gelir.
+- Bir klasörde tek proje olur. Başka bir projenin bulunduğu klasöre kaydedersen proje kendi alt klasörüne yazılır.
 
 ## Geliştirme
 
@@ -92,7 +97,7 @@ fuxa_wrapper/
 ├─ package.json             ← Electron uygulaması + electron-builder ayarları
 ├─ .vscode/                 ← Debug, Release ve Hızlı EXE (launch.json, tasks.json)
 ├─ src/
-│  ├─ core/                 ← model, fxprj, lint, tags, publish (Electron'dan bağımsız, testli)
+│  ├─ core/                 ← model, fxprj, folder, sync, lint, tags, publish (Electron'dan bağımsız, testli)
 │  ├─ main/                 ← ana süreç: main.js, fuxa.js (gömülü FUXA), fuxaApi.js
 │  ├─ preload.js
 │  └─ renderer/             ← pencere arayüzü (index.html, app.css, app.js) + açılış penceresi (splash.html/css)

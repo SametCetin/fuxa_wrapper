@@ -1,23 +1,28 @@
 'use strict';
-// .fxprj dosyası: tek dosya, girintili JSON (git'te farkı okunur).
+// Proje = bir klasör: .fxprj (başlık) + ekran/bağlantı/script dosyaları (folder.js).
 //
-//   {
-//     "fxprj": 1,                       biçim sürümü
-//     "name": "fuxa1",                  proje adı (publish klasörü/dosya adı)
-//     "fuxaVersion": "1.3.4",           projenin hazırlandığı FUXA
-//     "publish": {"dir": "publish"},    publish klasörü (.fxprj'e göre göreli veya mutlak)
-//     "project": { ...FUXA projesi... } tag value/timestamp olmadan
-//   }
+//   fuxa1/
+//   ├─ fuxa1.fxprj           {"fxprj": 2, "name", "fuxaVersion", "publish": {"dir"},
+//   │                          "parts": {"views": [id…], "devices": [id…], "scripts": [id…]},  (sıra)
+//   │                          "project": {…geri kalan: layout, metinler, alarmlar…}}
+//   ├─ views/<ad>.json + .svg
+//   ├─ devices/<ad>.json     (tag'leriyle)
+//   └─ scripts/<ad>.json + .js
 //
-// Düz FUXA proje JSON'u (editörde "Save Project As", eski <ad>_live.json) da açılabilir:
-// içe aktarma sayılır, ilk kayıtta .fxprj yolu sorulur.
+// Ekran çizimi ve script kodu düz metin dosyalarda: AI ajanı tek bir ekranı/script'i rahatça
+// düzenler, git farkı satır satır okunur. Tag value/timestamp yazılmaz. Bir klasörde tek proje.
+//
+// İçe aktarılanlar (ilk kayıtta yer sorulur, klasör biçiminde yazılır):
+//   - eski tek dosya .fxprj ("fxprj": 1, proje tek JSON içinde)
+//   - düz FUXA proje JSON'u (editörde "Save Project As", eski <ad>_live.json)
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./model');
+const folder = require('./folder');
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 const EXT = '.fxprj';
 const FUXA_VERSION = '1.3.4';
 
@@ -63,14 +68,21 @@ function migrateAdsPlugin(project) {
   return project;
 }
 
-/** Dosya içeriğinden belge: {doc, imported}. imported = düz FUXA JSON'du. */
-function parse(text, fileName = '') {
-  let obj;
+function parseJson(text, fileName) {
   try {
-    obj = JSON.parse(text.replace(/^﻿/, ''));
+    return JSON.parse(text.replace(/^﻿/, ''));
   } catch (e) {
     throw new FxprjError(`${fileName || 'dosya'} geçerli JSON değil: ${e.message}`);
   }
+}
+
+/**
+ * Dosya içeriğinden belge: {doc, imported, parts}. imported = eski tek dosya .fxprj ya da düz
+ * FUXA JSON'u (yolu yok sayılır, ilk kayıtta sorulur). Klasör biçiminde doc.project parçasızdır;
+ * read() parçaları dosyalardan ekler.
+ */
+function parse(text, fileName = '') {
+  const obj = parseJson(text, fileName);
   if (obj && typeof obj === 'object' && 'fxprj' in obj) {
     if (typeof obj.fxprj !== 'number' || obj.fxprj > FORMAT_VERSION) {
       throw new FxprjError(`${fileName}: .fxprj biçim sürümü ${obj.fxprj} desteklenmiyor (en fazla ${FORMAT_VERSION}). Uygulamayı güncelle.`);
@@ -81,15 +93,17 @@ function parse(text, fileName = '') {
       name: obj.name || obj.project.name || path.basename(fileName, EXT),
       fuxaVersion: obj.fuxaVersion || FUXA_VERSION,
       publish: { dir: 'publish', ...(obj.publish || {}) },
-      project: migrateAdsPlugin(obj.project),
+      project: obj.project,
     };
-    return { doc, imported: false };
+    if (obj.fxprj < 2) return { doc: { ...doc, project: migrateAdsPlugin(doc.project) }, imported: true, parts: null };
+    if (!obj.parts || typeof obj.parts !== 'object') throw new FxprjError(`${fileName}: "parts" alanı yok`);
+    return { doc, imported: false, parts: obj.parts };
   }
   if (isFuxaProject(obj)) {
     const name = obj.name || path.basename(fileName, path.extname(fileName)).replace(/_live$/, '');
     const doc = newDoc(name);
     doc.project = migrateAdsPlugin(obj);
-    return { doc, imported: true };
+    return { doc, imported: true, parts: null };
   }
   throw new FxprjError(`${fileName}: .fxprj ya da proje JSON dosyası değil`);
 }
@@ -98,16 +112,24 @@ function hashText(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-/** Dosya içeriğinin özeti; dosya yoksa/okunamıyorsa null. Dışarıdan değişiklik tespiti için. */
+/** .fxprj + parça dosyalarının özeti; dosya yoksa/okunamıyorsa null. Dışarıdan değişiklik tespiti için. */
 function fileHash(filePath) {
+  let text;
   try {
-    return hashText(fs.readFileSync(filePath, 'utf8'));
+    text = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+  let parts = false;
+  try { parts = !!JSON.parse(text.replace(/^﻿/, '')).parts; } catch { /* yarım yazılmış: düz özet */ }
+  try {
+    return parts ? folder.hashFiles(text, folder.readFiles(path.dirname(filePath))) : hashText(text);
   } catch {
     return null;
   }
 }
 
-/** {doc, imported, hash}: hash okunan içeriğin özeti (fileHash ile karşılaştırılır). */
+/** {doc, imported, hash}: doc.project tam proje; hash fileHash ile karşılaştırılır. */
 function read(filePath) {
   let text;
   try {
@@ -115,27 +137,64 @@ function read(filePath) {
   } catch (e) {
     throw new FxprjError(`${filePath} okunamadı: ${e.message}`);
   }
-  return { ...parse(text, filePath), hash: hashText(text) };
+  const { doc, imported, parts } = parse(text, filePath);
+  if (!parts) return { doc, imported, hash: hashText(text) };
+  let files;
+  try {
+    files = folder.readFiles(path.dirname(filePath));
+    doc.project = migrateAdsPlugin(folder.implode(doc.project, parts, files));
+  } catch (e) {
+    throw new FxprjError(`${filePath}: ${e.message}`);
+  }
+  return { doc, imported, hash: folder.hashFiles(text, files) };
 }
 
-function serialize(doc) {
+/** Başlık dosyasının metni (rest = parçaları çıkarılmış proje). */
+function serialize(doc, parts, rest) {
   const out = {
     fxprj: FORMAT_VERSION,
     name: doc.name,
     fuxaVersion: doc.fuxaVersion || FUXA_VERSION,
     publish: doc.publish || { dir: 'publish' },
-    project: model.cleanProject(doc.project),
+    parts,
+    project: rest,
   };
   return JSON.stringify(out, null, 2) + '\n';
 }
 
-/** Önce geçici dosyaya yazar, sonra yerine taşır (yarım kalan kayıt eski dosyayı bozmasın). Yazılanın özetini döner. */
+/**
+ * Projeyi klasöre yaz: önce parça dosyaları (sadece değişenler, artık olmayanlar silinir),
+ * en son .fxprj (geçici dosya + rename). Yazılanın özetini döner.
+ */
 function write(filePath, doc) {
-  const text = serialize(doc);
+  const { rest, parts, files } = folder.explode(model.cleanProject(doc.project));
+  folder.writeFiles(path.dirname(filePath), files);
+  const text = serialize(doc, parts, rest);
   const tmp = `${filePath}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, text, 'utf8');
   fs.renameSync(tmp, filePath);
-  return hashText(text);
+  return folder.hashFiles(text, files);
 }
 
-module.exports = { FORMAT_VERSION, EXT, FUXA_VERSION, FxprjError, safeName, emptyFuxaProject, newDoc, parse, read, serialize, write, fileHash };
+/**
+ * Bu klasöre proje yazılabilir mi? Başka bir .fxprj ya da dolu parça klasörü varsa
+ * (başka projenin dosyaları silinebilirdi) neden döner, yoksa null.
+ */
+function folderConflict(filePath) {
+  const dir = path.dirname(filePath);
+  let names;
+  try { names = fs.readdirSync(dir); } catch { return null; } // klasör yok: oluşturulur
+  const others = names.filter((f) => f.toLowerCase().endsWith(EXT) && f.toLowerCase() !== path.basename(filePath).toLowerCase());
+  if (others.length) return `klasörde başka proje var (${others.join(', ')})`;
+  if (!fs.existsSync(filePath)) {
+    const used = Object.keys(folder.KINDS).filter((k) => {
+      try { return fs.readdirSync(path.join(dir, k)).length > 0; } catch { return false; }
+    });
+    if (used.length) return `${used.map((k) => `${k}/`).join(', ')} klasörü dolu`;
+  }
+  return null;
+}
+
+module.exports = {
+  FORMAT_VERSION, EXT, FUXA_VERSION, FxprjError, safeName, emptyFuxaProject, newDoc, parse, read, serialize, write, fileHash, folderConflict,
+};

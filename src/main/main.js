@@ -12,6 +12,7 @@ const { app, BrowserWindow, WebContentsView, Menu, dialog, ipcMain, shell } = re
 const { FuxaServer } = require('./fuxa');
 const api = require('./fuxaApi');
 const fxprj = require('../core/fxprj');
+const folder = require('../core/folder');
 const model = require('../core/model');
 const lintmod = require('../core/lint');
 const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = require('../core/tags');
@@ -45,6 +46,7 @@ const cur = {
   metaDirty: false,  // publish klasörü gibi proje dışı ayar değişti
   editorEdits: 0,    // editörde yapılıp henüz FUXA sunucusuna gitmemiş düzenleme sayısı
   note: null,        // kullanıcıya gösterilecek kısa bilgi
+  importedFrom: null, // içe aktarılan dosya (ilk kayıtta önerilecek yer için)
   diskHash: null,    // .fxprj içeriğinin son okunduğu/yazıldığı andaki özeti
   ignoredHash: null, // birleştirilmesi ertelenen disk içeriği (aynısı için tekrar sorulmaz)
   diskBase: null,    // dosyadaki proje (son okunan/yazılan, ham): diskte ne değişti
@@ -345,6 +347,7 @@ async function loadDoc(doc, filePath, note, hash = null) {
   cur.liveDigest = model.digest(loaded);
   cur.metaDirty = false;
   cur.note = note || null;
+  cur.importedFrom = null;
   cur.diskHash = filePath ? hash : null;
   cur.ignoredHash = null;
   cur.diskBase = doc.project;
@@ -402,7 +405,8 @@ async function openPath(p, { skipConfirm = false } = {}) {
   if (!skipConfirm && !(await confirmDiscard('Başka proje açmadan'))) return;
   const { doc, imported, hash } = fxprj.read(p);
   if (imported) {
-    await loadDoc(doc, null, `Proje JSON'u içe aktarıldı (${path.basename(p)}). Kaydet ile .fxprj olarak kaydet.`);
+    await loadDoc(doc, null, `${path.basename(p)} içe aktarıldı. Kaydet ile proje klasörüne yaz (ekranlar, bağlantılar, script'ler ayrı dosyalarda).`);
+    cur.importedFrom = p;
   } else {
     await loadDoc(doc, p, null, hash);
     addRecent(p);
@@ -437,15 +441,25 @@ async function saveProject(saveAs) {
   const url = requireFuxa();
   let target = cur.path;
   if (saveAs || !target) {
+    const name = fxprj.safeName(cur.doc.name);
+    const base = cur.importedFrom ? path.dirname(cur.importedFrom) : app.getPath('documents');
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
       title: saveAs ? 'Farklı kaydet' : 'Projeyi kaydet',
-      defaultPath: target || path.join(app.getPath('documents'), fxprj.safeName(cur.doc.name) + fxprj.EXT),
+      defaultPath: target || path.join(base, name, name + fxprj.EXT),
       filters: [{ name: 'fuxaw projesi', extensions: ['fxprj'] }],
     });
     if (canceled || !filePath) return false;
     target = filePath.toLowerCase().endsWith(fxprj.EXT) ? filePath : filePath + fxprj.EXT;
     if (samePath(target, cur.path) && !(await confirmOverwrite(target))) return false;
     if (!cur.path || cur.doc.name === 'Adsız') cur.doc.name = path.basename(target, fxprj.EXT);
+    // Proje bir klasördür: seçilen klasörde başka proje varsa kendi alt klasörüne yazılır.
+    if (!samePath(target, cur.path) && fxprj.folderConflict(target)) {
+      const sub = path.join(path.dirname(target), path.basename(target, fxprj.EXT), path.basename(target));
+      const why = fxprj.folderConflict(sub);
+      if (why) throw new Error(`${path.dirname(target)} klasörüne yazılamadı (${fxprj.folderConflict(target)}); ${path.dirname(sub)} de uygun değil (${why}). Boş bir klasör seç.`);
+      target = sub;
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
   } else if (!(await confirmOverwrite(target, { offerSaveAs: true }))) {
     return false;
   }
@@ -456,8 +470,10 @@ async function saveProject(saveAs) {
   cur.ignoredHash = null;
   cur.diskBase = prj;
   cur.liveBase = prj;
-  if (!samePath(target, cur.path)) watchProjectFile(target);
+  const moved = !samePath(target, cur.path);
   cur.path = target;
+  cur.importedFrom = null;
+  if (moved) watchProjectFile(target);
   cur.savedDigest = model.digest(prj);
   cur.liveDigest = cur.savedDigest;
   cur.metaDirty = false;
@@ -472,7 +488,7 @@ async function saveProject(saveAs) {
 // Değişiklik sormadan, öğe öğe uygulanır (sync.js): diskte değişen ekran/script/bağlantı
 // sunucuya tek tek gönderilir, editörde kaydedilmemiş başka öğeler korunur. Sadece aynı öğe
 // iki tarafta da değiştiyse sorulur.
-let fileWatcher = null;
+let fileWatchers = [];
 let watchTimer = null;
 let diskPrompting = false;
 
@@ -490,19 +506,27 @@ function externallyChanged() {
 }
 
 function watchProjectFile(filePath) {
-  if (fileWatcher) { fileWatcher.close(); fileWatcher = null; }
+  for (const w of fileWatchers) w.close();
+  fileWatchers = [];
   clearTimeout(watchTimer);
   if (!filePath) return;
+  const changed = () => {
+    clearTimeout(watchTimer);
+    watchTimer = setTimeout(checkDisk, 700); // art arda yazmalar (ör. ajanın birkaç dosyası) tek seferde
+  };
+  const watch = (dir, filter) => {
+    try {
+      const w = fs.watch(dir, (_ev, name) => { if (!name || filter(String(name).toLowerCase())) changed(); });
+      w.on('error', () => {});
+      fileWatchers.push(w);
+    } catch { /* klasör yok / izlenemiyor: Kaydet öncesi kontrol yine çalışır */ }
+  };
   // Dosya değil klasör izlenir: atomik kayıtlar (bizimki, git, Syncthing) dosyayı rename ile değiştirir.
+  const root = path.dirname(filePath);
   const base = path.basename(filePath).toLowerCase();
-  try {
-    fileWatcher = fs.watch(path.dirname(filePath), (_ev, name) => {
-      if (name && String(name).toLowerCase() !== base) return;
-      clearTimeout(watchTimer);
-      watchTimer = setTimeout(checkDisk, 700); // art arda yazmalar tek seferde
-    });
-    fileWatcher.on('error', () => {});
-  } catch { /* izlenemiyor: Kaydet öncesi kontrol yine çalışır */ }
+  const kinds = Object.keys(folder.KINDS);
+  watch(root, (name) => name === base || kinds.includes(name)); // .fxprj; parça klasörü oluşturulursa/silinirse
+  for (const kind of kinds) watch(path.join(root, kind), () => true);
 }
 
 async function checkDisk() {
