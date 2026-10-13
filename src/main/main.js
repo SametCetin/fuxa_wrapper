@@ -17,6 +17,7 @@ const lintmod = require('../core/lint');
 const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = require('../core/tags');
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
+const sync = require('../core/sync');
 const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
 
@@ -44,6 +45,10 @@ const cur = {
   metaDirty: false,  // publish klasörü gibi proje dışı ayar değişti
   editorEdits: 0,    // editörde yapılıp henüz FUXA sunucusuna gitmemiş düzenleme sayısı
   note: null,        // kullanıcıya gösterilecek kısa bilgi
+  diskHash: null,    // .fxprj içeriğinin son okunduğu/yazıldığı andaki özeti
+  ignoredHash: null, // birleştirilmesi ertelenen disk içeriği (aynısı için tekrar sorulmaz)
+  diskBase: null,    // dosyadaki proje (son okunan/yazılan, ham): diskte ne değişti
+  liveBase: null,    // aynı halin sunucudaki karşılığı: editörde ne değişti
 };
 
 // ---------------------------------------------------------------- yardımcılar
@@ -329,7 +334,7 @@ async function poll() {
 }
 
 // ---------------------------------------------------------------- proje işlemleri
-async function loadDoc(doc, filePath, note) {
+async function loadDoc(doc, filePath, note, hash = null) {
   lastTagDevice = null;
   const url = requireFuxa();
   await api.setProject(url, doc.project);
@@ -340,6 +345,11 @@ async function loadDoc(doc, filePath, note) {
   cur.liveDigest = model.digest(loaded);
   cur.metaDirty = false;
   cur.note = note || null;
+  cur.diskHash = filePath ? hash : null;
+  cur.ignoredHash = null;
+  cur.diskBase = doc.project;
+  cur.liveBase = loaded;
+  watchProjectFile(filePath);
   editorWanted = true;
   win.webContents.send('show-tab', 'editor');
   await loadEditor();
@@ -390,13 +400,35 @@ async function openPath(p, { skipConfirm = false } = {}) {
     return;
   }
   if (!skipConfirm && !(await confirmDiscard('Başka proje açmadan'))) return;
-  const { doc, imported } = fxprj.read(p);
+  const { doc, imported, hash } = fxprj.read(p);
   if (imported) {
     await loadDoc(doc, null, `Proje JSON'u içe aktarıldı (${path.basename(p)}). Kaydet ile .fxprj olarak kaydet.`);
   } else {
-    await loadDoc(doc, p);
+    await loadDoc(doc, p, null, hash);
     addRecent(p);
   }
+}
+
+/**
+ * Açık dosya açıldıktan/kaydedildikten sonra diskte değiştiyse üzerine yazmadan önce sor.
+ * true = yazılabilir. offerSaveAs: "Farklı kaydet…" seçeneği (seçilirse kaydı o yapar, false döner).
+ */
+async function confirmOverwrite(target, { offerSaveAs = false } = {}) {
+  if (!samePath(target, cur.path) || !externallyChanged()) return true;
+  const buttons = offerSaveAs ? ['Üzerine yaz', 'Farklı kaydet…', 'İptal'] : ['Üzerine yaz', 'İptal'];
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning',
+    title: APP_NAME,
+    message: `"${path.basename(target)}" açıldıktan sonra diskte değişti.`,
+    detail: 'Üzerine yazarsan dışarıda yapılan değişiklikler (ör. git, Syncthing, başka bir düzenleyici) kaybolur.',
+    buttons,
+    defaultId: buttons.length - 1,
+    cancelId: buttons.length - 1,
+    noLink: true,
+  });
+  if (response === 0) return true;
+  if (offerSaveAs && response === 1) await saveProject(true);
+  return false;
 }
 
 /** true = kaydedildi. */
@@ -412,12 +444,19 @@ async function saveProject(saveAs) {
     });
     if (canceled || !filePath) return false;
     target = filePath.toLowerCase().endsWith(fxprj.EXT) ? filePath : filePath + fxprj.EXT;
+    if (samePath(target, cur.path) && !(await confirmOverwrite(target))) return false;
     if (!cur.path || cur.doc.name === 'Adsız') cur.doc.name = path.basename(target, fxprj.EXT);
+  } else if (!(await confirmOverwrite(target, { offerSaveAs: true }))) {
+    return false;
   }
   await flushEditor();
   const prj = await api.getProject(url);
   cur.doc.project = prj;
-  fxprj.write(target, cur.doc);
+  cur.diskHash = fxprj.write(target, cur.doc);
+  cur.ignoredHash = null;
+  cur.diskBase = prj;
+  cur.liveBase = prj;
+  if (!samePath(target, cur.path)) watchProjectFile(target);
   cur.path = target;
   cur.savedDigest = model.digest(prj);
   cur.liveDigest = cur.savedDigest;
@@ -425,6 +464,171 @@ async function saveProject(saveAs) {
   cur.note = null;
   addRecent(target);
   return true;
+}
+
+// ---------------------------------------------------------------- dışarıdan değişiklik
+// Açık .fxprj başka bir yerde (git, Syncthing, AI ajanı, metin düzenleyici) değişebilir.
+// Dosya değişimi içerik özetiyle anlaşılır: kendi kaydımız diskHash'i güncellediği için tetiklemez.
+// Değişiklik sormadan, öğe öğe uygulanır (sync.js): diskte değişen ekran/script/bağlantı
+// sunucuya tek tek gönderilir, editörde kaydedilmemiş başka öğeler korunur. Sadece aynı öğe
+// iki tarafta da değiştiyse sorulur.
+let fileWatcher = null;
+let watchTimer = null;
+let diskPrompting = false;
+
+function samePath(a, b) {
+  if (!a || !b) return false;
+  const [x, y] = [path.resolve(a), path.resolve(b)];
+  return process.platform === 'linux' ? x === y : x.toLowerCase() === y.toLowerCase();
+}
+
+/** Dosya son okunuş/yazılıştan beri değişti mi? Silinmişse false (yeniden kaydetmek zararsız). */
+function externallyChanged() {
+  if (!cur.path || !cur.diskHash) return false;
+  const h = fxprj.fileHash(cur.path);
+  return h !== null && h !== cur.diskHash;
+}
+
+function watchProjectFile(filePath) {
+  if (fileWatcher) { fileWatcher.close(); fileWatcher = null; }
+  clearTimeout(watchTimer);
+  if (!filePath) return;
+  // Dosya değil klasör izlenir: atomik kayıtlar (bizimki, git, Syncthing) dosyayı rename ile değiştirir.
+  const base = path.basename(filePath).toLowerCase();
+  try {
+    fileWatcher = fs.watch(path.dirname(filePath), (_ev, name) => {
+      if (name && String(name).toLowerCase() !== base) return;
+      clearTimeout(watchTimer);
+      watchTimer = setTimeout(checkDisk, 700); // art arda yazmalar tek seferde
+    });
+    fileWatcher.on('error', () => {});
+  } catch { /* izlenemiyor: Kaydet öncesi kontrol yine çalışır */ }
+}
+
+async function checkDisk() {
+  if (!cur.path || !cur.diskHash || diskPrompting || !win) return;
+  if (busy || polling) { watchTimer = setTimeout(checkDisk, 500); return; }
+  const h = fxprj.fileHash(cur.path);
+  if (h === null || h === cur.diskHash || h === cur.ignoredHash) return;
+  let read;
+  try {
+    read = fxprj.read(cur.path);
+  } catch (e) {
+    // Yazan taraf işini bitirmemiş olabilir; bir sonraki değişiklikte tekrar denenir.
+    cur.note = `Diskteki dosya okunamadı: ${e.message}`;
+    pushState();
+    return;
+  }
+  if (read.imported || read.hash !== h) return;
+  diskPrompting = true;
+  try {
+    await guard(() => applyDiskChange(read))();
+  } finally {
+    diskPrompting = false;
+  }
+}
+
+/** Sunucudaki projeyi from -> to yap: önce öğe komutları, tutmazsa tüm proje. true = sunucu değişti. */
+async function pushProject(url, from, to) {
+  const ops = sync.planOps(from, to);
+  if (ops && !ops.length) return false;
+  if (ops) {
+    for (const o of ops) await api.projectData(url, o.cmd, o.data);
+    const d = sync.diff(to, await api.getProject(url));
+    if (!d.changed.length && !d.removed.length) return true;
+    // ör. set-view aynı adlı ekranı sessizce atlar (AGENTS.md §5): tüm projeyle düzelt
+  }
+  await api.setProject(url, to);
+  return true;
+}
+
+async function applyDiskChange({ doc, hash }) {
+  const url = requireFuxa();
+  // Editörde sunucuya gitmemiş çizim düzenlemesi varsa önce aktar (sayaç anlık okunur).
+  if (editorView && editorView.webContents.getURL().includes('/editor')) {
+    const edits = Number(await editorView.webContents.executeJavaScript('window.__fxw ? window.__fxw.edits : 0').catch(() => 0)) || 0;
+    if (edits > 0) await flushEditor();
+  }
+  const mine = await api.getProject(url);
+  const bases = { liveBase: cur.liveBase, mine, diskBase: cur.diskBase, theirs: doc.project };
+  let r = sync.merge(bases);
+  let tookTheirs = false;
+  if (r.conflicts.length) {
+    const names = sync.describe(r.conflicts, doc.project, mine);
+    const others = r.theirs.length - r.conflicts.length;
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'warning',
+      title: APP_NAME,
+      message: `"${path.basename(cur.path)}" diskte değişti; aynı öğeler burada da değiştirilmiş.`,
+      detail: `Çakışan: ${names.join(', ')}.\n`
+        + (others > 0 ? `Diskteki diğer ${others} değişiklik her durumda alınır.\n` : '')
+        + 'Çakışan öğelerde hangi hal kalsın?',
+      buttons: ['Diskteki hali al', 'Bendekini koru', 'Şimdilik hiçbirini alma'],
+      defaultId: 1,
+      cancelId: 2,
+      noLink: true,
+    });
+    if (response === 2) {
+      cur.ignoredHash = hash;
+      cur.note = 'Diskteki değişiklikler alınmadı; Kaydet dosyanın üzerine yazmadan önce soracak.';
+      return;
+    }
+    if (response === 0) {
+      r = sync.merge(bases, true);
+      tookTheirs = true;
+    }
+  }
+  const changed = await pushProject(url, mine, r.target);
+  const after = changed ? await api.getProject(url) : mine;
+  const kept = r.mine.filter((k) => !(tookTheirs && r.conflicts.includes(k)));
+  cur.doc = doc;
+  cur.diskHash = hash;
+  cur.ignoredHash = null;
+  cur.diskBase = doc.project;
+  cur.liveDigest = model.digest(after);
+  if (kept.length || cur.metaDirty) {
+    // Editördeki kaydedilmemiş öğeler korundu: proje kirli kalır.
+    cur.liveBase = doc.project;
+    cur.savedDigest = model.digest(doc.project);
+  } else {
+    cur.liveBase = after;
+    cur.savedDigest = cur.liveDigest;
+  }
+  const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const got = sync.describe(r.theirs.filter((k) => tookTheirs || !r.conflicts.includes(k)), doc.project, mine);
+  cur.note = got.length
+    ? `Diskten alındı (${time}): ${got.join(', ')}${kept.length ? '. Kaydedilmemiş değişikliklerin korundu.' : ''}`
+    : cur.note;
+  // Editör kendi proje kopyasını tutar ve Kaydet'te tümünü geri yazar: sunucu değiştiyse yeniden yüklenmeli.
+  // Açık ekran editörde adıyla hatırlandığından aynı ekran açılır.
+  if (changed && editorView && fuxaState.url && editorView.webContents.getURL().startsWith(fuxaState.url)) {
+    editorView.webContents.reload();
+  }
+}
+
+async function reloadFromDisk({ confirm = true } = {}) {
+  if (!cur.doc) return;
+  if (!cur.path) {
+    await message('info', 'Proje henüz bir .fxprj dosyasına kaydedilmedi.');
+    return;
+  }
+  requireFuxa();
+  if (confirm && isDirty()) {
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'warning',
+      title: APP_NAME,
+      message: `"${cur.doc.name}" projesinde kaydedilmemiş değişiklikler var.`,
+      detail: 'Diskten yeniden yüklersen bu değişiklikler kaybolur.',
+      buttons: ['Diskten yeniden yükle', 'İptal'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response !== 0) return;
+  }
+  const p = cur.path;
+  const { doc, hash } = fxprj.read(p);
+  await loadDoc(doc, p, 'Proje diskten yeniden yüklendi.', hash);
 }
 
 async function analyze() {
@@ -532,9 +736,12 @@ async function publishChooseDir() {
   if (canceled || !filePaths.length) return null;
   const rel = path.relative(path.dirname(cur.path), filePaths[0]);
   const dir = rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.split(path.sep).join('/') : filePaths[0];
+  if (externallyChanged()) {
+    throw new Error('Proje dosyası diskte değişti. Önce Dosya → Diskten yeniden yükle ya da Kaydet ile durumu netleştir.');
+  }
   cur.doc.publish = { ...(cur.doc.publish || {}), dir };
   // Klasör seçimi .fxprj'e yazılır; publish kaydedilmiş hali yazdığından burada hemen kaydet.
-  fxprj.write(cur.path, cur.doc);
+  cur.diskHash = fxprj.write(cur.path, cur.doc);
   return publisher.plan(cur.doc, cur.path);
 }
 
@@ -602,6 +809,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Kaydet', accelerator: 'CmdOrCtrl+S', click: run(() => saveProject(false)) },
         { label: 'Farklı Kaydet…', accelerator: 'CmdOrCtrl+Shift+S', click: run(() => saveProject(true)) },
+        { label: 'Diskten yeniden yükle', click: run(() => reloadFromDisk()) },
         { type: 'separator' },
         { label: 'Publish (klasöre)…', accelerator: 'CmdOrCtrl+Shift+P', click: send('publish') },
         { type: 'separator' },

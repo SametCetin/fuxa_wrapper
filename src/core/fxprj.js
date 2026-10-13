@@ -12,6 +12,7 @@
 // Düz FUXA proje JSON'u (editörde "Save Project As", eski <ad>_live.json) da açılabilir:
 // içe aktarma sayılır, ilk kayıtta .fxprj yolu sorulur.
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./model');
@@ -93,6 +94,20 @@ function parse(text, fileName = '') {
   throw new FxprjError(`${fileName}: .fxprj ya da proje JSON dosyası değil`);
 }
 
+function hashText(text) {
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/** Dosya içeriğinin özeti; dosya yoksa/okunamıyorsa null. Dışarıdan değişiklik tespiti için. */
+function fileHash(filePath) {
+  try {
+    return hashText(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** {doc, imported, hash}: hash okunan içeriğin özeti (fileHash ile karşılaştırılır). */
 function read(filePath) {
   let text;
   try {
@@ -100,7 +115,7 @@ function read(filePath) {
   } catch (e) {
     throw new FxprjError(`${filePath} okunamadı: ${e.message}`);
   }
-  return parse(text, filePath);
+  return { ...parse(text, filePath), hash: hashText(text) };
 }
 
 function serialize(doc) {
@@ -114,11 +129,13 @@ function serialize(doc) {
   return JSON.stringify(out, null, 2) + '\n';
 }
 
-/** Önce geçici dosyaya yazar, sonra yerine taşır (yarım kalan kayıt eski dosyayı bozmasın). */
+/** Önce geçici dosyaya yazar, sonra yerine taşır (yarım kalan kayıt eski dosyayı bozmasın). Yazılanın özetini döner. */
 function write(filePath, doc) {
+  const text = serialize(doc);
   const tmp = `${filePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, serialize(doc), 'utf8');
+  fs.writeFileSync(tmp, text, 'utf8');
   fs.renameSync(tmp, filePath);
+  return hashText(text);
 }
 
-module.exports = { FORMAT_VERSION, EXT, FUXA_VERSION, FxprjError, safeName, emptyFuxaProject, newDoc, parse, read, serialize, write };
+module.exports = { FORMAT_VERSION, EXT, FUXA_VERSION, FxprjError, safeName, emptyFuxaProject, newDoc, parse, read, serialize, write, fileHash };

@@ -13,7 +13,8 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Yeni Proje (Ctrl+N) | Boş proje ("Adsız"); ilk kayıtta dosya adı sorulur |
 | Dosya → Proje Aç… (Ctrl+O) | `.fxprj` açar. Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) içe aktarılır |
 | Dosya → Son Projeler | Son açılan 10 proje |
-| Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar |
+| Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar. Dosya açıldıktan sonra diskte değiştiyse (git, Syncthing…) üzerine yazmadan önce sorar |
+| Dosya → Diskten yeniden yükle | `.fxprj`'i diskten baştan yükler (normalde gerekmez, aşağıya bkz.) |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
 | Proje → Scriptler (Ctrl+6) | Gömülü script yönetimini doğrudan açar |
@@ -22,6 +23,8 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
+
+**Dosya dışarıdan değişirse** (AI ajanı, git, Syncthing) değişiklik sormadan, sadece değişen ekran/script/bağlantı olarak editöre gelir; PLC bağlantıları gereksiz yere kopmaz. Editörde kaydedilmemiş başka değişikliklerin korunur. Yalnız aynı öğe iki tarafta da değiştiyse hangisinin kalacağı sorulur.
 
 `.fxprj` dosyasına çift tıklamak da projeyi açar (kurulum paketi dosya ilişkilendirmesini yapar). Kaydedilmemiş değişiklik varsa başlıkta `●` görünür ve kapatırken sorulur.
 

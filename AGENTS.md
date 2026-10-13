@@ -26,6 +26,7 @@ Düz JavaScript (CommonJS), derleme adımı yok.
   - `lint.js`: §7 "Tuzaklar"ın kural hali + kırık tag/script referansları.
   - `tags.js`: tag tablosu + kullanım yerleri; yeni tag (`buildTag`, `tagTypesFor`, `newTagId`).
   - `publish.js`: klasöre çıkarma (proje JSON + README), lint hatasında yazmaz.
+  - `sync.js`: dışarıdan değişen projeyi öğe öğe birleştirme (`merge`) ve sunucu komut planı (`planOps`).
 - `.vscode/`: `launch.json` (Debug, Release, Hızlı EXE) ve `tasks.json` (Release, Hızlı EXE).
 - `src/main/`: Electron ana süreci.
   - `main.js`: pencere, menü, IPC, proje işlemleri (yeni/aç/kaydet/publish), değişiklik takibi.
@@ -53,7 +54,7 @@ npm run dist         # kurulum paketi (Windows'ta NSIS)
 
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
-Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 19 test geçiyor (2026-10-02).
+Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 63 test geçiyor (2026-10-13).
 
 Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `electron.exe`).
 
@@ -67,6 +68,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
   `fxprj` biçim sürümüdür; daha yenisi açılmaz ("uygulamayı güncelle"). `publish.dir` göreliyse `.fxprj` klasörüne göredir. Tag `value`/`timestamp` yazılmaz. Dosyada kayıt zamanı gibi her kayıtta değişen alan **yok** (git farkı temiz kalsın).
 - Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) **Aç** ile içe aktarılır; ilk kayıtta `.fxprj` yolu sorulur.
 - **Değişiklik takibi:** her 1,5 sn FUXA'daki projenin özeti dosyadakiyle karşılaştırılır + editördeki bekleyen düzenleme sayısı (§4). Kaydedilmemiş değişiklik varsa başlıkta `●`, Yeni/Aç/Kapat'ta "Kaydet / Kaydetme / İptal" sorulur.
+- **Dışarıdan değişiklik (ajan/git/Syncthing):** açık `.fxprj`'in klasörü `fs.watch` ile izlenir (dosya değil klasör: atomik kayıtlar rename ile gelir; 700 ms bekleyip art arda yazmaları toplar). Dosya değişimi içerik özetiyle anlaşılır (`fxprj.fileHash`, `read().hash`, `write()` dönüşü); kendi kaydımız `cur.diskHash`'i güncellediği için tetiklemez. Değişiklik **sormadan, öğe öğe** uygulanır (`src/core/sync.js`): `diskBase→dosya` ile `liveBase→sunucu` farkları öğe düzeyinde (ekran, cihaz, script, …) üç yönlü birleştirilir; sonuç `/api/projectData` komutlarıyla (silmeler önce, cihaz/script ekrandan önce) gönderilir, sonra GET ile doğrulanır; tutmazsa (ör. `set-view` aynı adı atlar) ya da öğe dışı alan değiştiyse tüm proje gönderilir. Ekran/script değişikliği bağlantıları koparmaz; `set-device` sadece o cihazı yeniden başlatır. Editör kendi proje kopyasını tutup Kaydet'te tümünü geri yazdığı için sunucu değişince editör sayfası yeniden yüklenir (açık ekran localStorage'dan aynı açılır). Editördeki kaydedilmemiş başka öğeler korunur ve proje kirli kalır; sadece aynı öğe iki tarafta farklı değiştiyse "Diskteki hali al / Bendekini koru / Şimdilik hiçbirini alma" sorulur. Okunamayan (yarım yazılmış) dosya atlanır. Dosya → Diskten yeniden yükle tam yükleme yapar. Kaydet ve publish klasörü seçimi, alınmamış disk değişikliği varsa üzerine yazmadan önce sorar / durur.
 - **Publish** kaydedilmiş hali yazar; kaydedilmemiş değişiklik varsa önce kaydettirir. Önce plan (klasör, dosyalar, lint) gösterilir; lint HATA varsa yazmaz. Çıktı: `<publish.dir>/<ad>/<ad>.json` + `README.md` (hedef makinede ☰ → *Open Project*, önce *Save Project As* ile yedek, cihaz/tag özeti).
 - **Tag ekleme/düzenleme/silme** özgün Taglar ekranından yapılır; `.fxprj` dosyasına yazmak için Kaydet gerekir. Çekirdek `buildTag`, `tag:add` ve `tag:delete` API'leri korunur; ayrı düzenleme tablosu kullanılmaz.
 - **Çekirdek tag silme API'si:** flush → GET → `prepareTagRemoval` → kullanım uyarılı onay → set-device → editörü yeniden yükleme. Özgün editörün silme işlemi kendi akışını kullanır; bu çekirdek API uyarısıyla aynı davranışı sağladığı varsayılmamalı.
