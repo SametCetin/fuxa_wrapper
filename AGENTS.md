@@ -9,11 +9,11 @@ Bu repo sadece **uygulama kodunu** içerir. Yönetilen FUXA projeleri ayrı bir 
 
 **Ürün (kullanıcının kararı, 2026-10-02):** kendi penceresi olan bir masaüstü uygulaması. Electron, tüm işletim sistemleri.
 - Menü: **Yeni Proje, Aç, Kaydet, Farklı Kaydet, Son Projeler, Publish (sadece klasöre)**.
-- Proje dosyası **`.fxprj`**: tek dosya, girintili JSON (bkz. §3).
+- **Proje = bir klasör**: `.fxprj` başlığı + `views/`, `devices/`, `scripts/` altında öğe başına dosyalar (bkz. §3). Tek dosya proje yok (kullanıcı kararı, 2026-10-13; sürüm çıkmadan önce, test projesi bir kerelik dönüştürüldü).
 - Ekranlar pencerenin içine gömülü FUXA editöründe tasarlanır. FUXA uygulamanın içinde gelir (Node.js dahil); kullanıcı ayrıca bir şey kurmaz.
 - **Uygulamanın kendi arayüzünde FUXA adı geçmez** (menü, pencere, mesajlar, hata metinleri, lint mesajları, günlük dosyası adı `engine.log`). İç bileşenden "editör bileşeni" / "bileşenler" diye söz edilir. Açılışta çerçevesiz bir açılış penceresi (uygulama adı + sonsuz kayan bar + "Bileşenler yükleniyor…") gösterilir; ana pencere bileşen hazır olunca açılır. İstisnalar: kod içi yorum/değişken adları, publish README'si (hedef makinedeki FUXA editörünü tarif etmek zorunda) ve gömülü editörün kendi metinleri / proje verisi (ör. "FUXA Server" cihazı). Editörün kendi FUXA yazıları (Yardım, About, logo) **gizlenmez**; kural sadece bizim yazdığımız metinler için (kullanıcı kararı, 2026-10-02).
 - Hedef makineye ağ üzerinden **hiçbir şey gönderilmez**. Publish proje JSON'unu ve README'yi bir klasöre yazar, klasör elle taşınır. SSH/uzak FUXA desteği geri eklenmez.
-- **İlke (kullanıcı kararı, 2026-10-13): amaç FUXA'dan sapmak değil, FUXA'yı daha kullanışlı yapmak.** Yeni özellik sadece FUXA ile çalışırken gerçekten tıkanılan bir noktayı aşmak için eklenir; "olsa iyi olur" özellikleri, kendi dosya biçimleri ya da FUXA'da olmayan yetenekler önerilip yol haritası gibi ilerletilmez. 2026-10-13'te bağlantı ortamları, klasör biçimi (`fxprj: 2`), yerel AI ajan kanalı (MCP) ve ekran şablonları yazılıp bu ilke gereği geri alındı (`11e250b`, `e39e209`, `d0a47da`, `14e3739`; gerçek bir tıkanıklıkta git geçmişinden geri getirilebilir).
+- **İlke (kullanıcı kararı, 2026-10-13): amaç FUXA'dan sapmak değil, FUXA'yı daha kullanışlı yapmak.** Yeni özellik sadece FUXA ile çalışırken gerçekten tıkanılan bir noktayı aşmak için eklenir; "olsa iyi olur" özellikleri, kendi dosya biçimleri ya da FUXA'da olmayan yetenekler önerilip yol haritası gibi ilerletilmez. 2026-10-13'te bağlantı ortamları, yerel AI ajan kanalı (MCP) ve ekran şablonları yazılıp bu ilke gereği geri alındı (`11e250b`, `d0a47da`, `14e3739`; gerçek bir tıkanıklıkta git geçmişinden geri getirilebilir). Proje klasörü yapısı ise gerçek bir tıkanıklıktan geri geldi: tek dosyada ekran çizimi JSON içinde tek satırlık (≈11 bin karakter, kaçışlı) bir metindi, AI ajanı düzenleyemiyordu.
 
 > Geçmiş: 2026-10-02'de önce Python CLI + tarayıcıda web arayüzü olarak yazıldı (`fuxaw/`, `fuxaw.cmd`). Kullanıcı "kendi penceresi olan uygulama" istediği için aynı gün Electron'a geçildi; Python kodu silindi (git geçmişinde: `f9d788c`). Üç hal senkronu (yerel/hedef/taban, pull) yeni modelde gerekmediği için taşınmadı.
 
@@ -23,7 +23,8 @@ Düz JavaScript (CommonJS), derleme adımı yok.
 
 - `src/core/`: Electron'dan bağımsız, testli çekirdek.
   - `model.js`: proje temizleme (tag `value`/`timestamp` atılır, script CRLF→LF), değişiklik özeti (`digest`; SVG öznitelik sırası yok sayılır, bkz. §7), öğelere bölme (`splitProject`).
-  - `fxprj.js`: `.fxprj` okuma/yazma (atomik: geçici dosya + rename), düz FUXA JSON'unu içe aktarma, `safeName`.
+  - `fxprj.js`: proje klasörü okuma/yazma (`.fxprj` başlığı atomik: geçici dosya + rename), eski tek dosya `.fxprj` ve düz FUXA JSON'unu içe aktarma, `folderConflict`, `safeName`.
+  - `folder.js`: projeyi öğe dosyalarına ayırma (`explode`) / birleştirme (`implode`), sadece değişen dosyaları yazma (`writeFiles`).
   - `lint.js`: §7 "Tuzaklar"ın kural hali + kırık tag/script referansları.
   - `tags.js`: tag tablosu + kullanım yerleri; yeni tag (`buildTag`, `tagTypesFor`, `newTagId`).
   - `publish.js`: klasöre çıkarma (proje JSON + README), lint hatasında yazmaz.
@@ -55,21 +56,28 @@ npm run dist         # kurulum paketi (Windows'ta NSIS)
 
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
-Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 63 test geçiyor (2026-10-13).
+Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 71 test geçiyor (2026-10-13).
 
 Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `electron.exe`).
 
 ## 3. Tasarım kararları
 
-- **`.fxprj` tek gerçek kaynaktır.** Açılınca proje gömülü FUXA'ya yüklenir (`POST /api/project`), editör pencerede açılır. **Kaydet** önce editörün bekleyen değişikliklerini sunucuya aktarır (§4), sonra `GET /api/project` ile okuyup `.fxprj`'e yazar.
-- `.fxprj` biçimi:
-  ```json
-  {"fxprj": 1, "name": "fuxa1", "fuxaVersion": "1.3.4", "publish": {"dir": "publish"}, "project": {...}}
+- **Proje klasörü tek gerçek kaynaktır.** Açılınca proje gömülü FUXA'ya yüklenir (`POST /api/project`), editör pencerede açılır. **Kaydet** önce editörün bekleyen değişikliklerini sunucuya aktarır (§4), sonra `GET /api/project` ile okuyup klasöre yazar.
+- Proje klasörü (`fxprj: 2`):
   ```
-  `fxprj` biçim sürümüdür; daha yenisi açılmaz ("uygulamayı güncelle"). `publish.dir` göreliyse `.fxprj` klasörüne göredir. Tag `value`/`timestamp` yazılmaz. Dosyada kayıt zamanı gibi her kayıtta değişen alan **yok** (git farkı temiz kalsın).
-- Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) **Aç** ile içe aktarılır; ilk kayıtta `.fxprj` yolu sorulur.
+  fuxa1/
+  ├─ fuxa1.fxprj           {"fxprj": 2, "name", "fuxaVersion", "publish": {"dir"},
+  │                          "parts": {"views": [id…], "devices": [id…], "scripts": [id…]}, "project": {…geri kalan…}}
+  ├─ views/<ad>.json + .svg    ekran (svgcontent hariç) + çizim
+  ├─ devices/<ad>.json         bağlantı + tag'leri
+  └─ scripts/<ad>.json + .js   script (code hariç) + kod
+  ```
+  Amaç: ekran çizimi ve script kodu düz metin; AI ajanı tek bir ekranı/script'i düzenleyebilir, git farkı satır satır okunur. Öğeler dosya adıyla değil içlerindeki `id` ile eşlenir; ad değişince dosya adı değişir (çakışan / büyük-küçük harf farklı adlara `__<id>` eklenir, Windows ayrılmış adları `_` ile). `parts` sırası korunur; sırada olmayan (dışarıda eklenen) dosya sona eklenir, dosyası silinen öğe düşer. Aynı id iki dosyada / id yok / bozuk JSON → okuma hatası. `project` alanında öğelere bölünmeyen her şey (layout, metinler, alarmlar, `server`…) durur.
+  Kaydet sadece içeriği değişen dosyaları yazar (önce parçalar, en son `.fxprj`) ve artık olmayan parça dosyalarını siler. **Bir klasörde tek proje**: kayıt yeni bir yere yapılırken klasörde başka `.fxprj` ya da dolu `views/devices/scripts` varsa (`folderConflict`) proje kendi alt klasörüne (`<seçilen klasör>/<ad>/`) yazılır. Yeni projede önerilen yer `Belgeler/<ad>/<ad>.fxprj`.
+  `fxprj` biçim sürümüdür; daha yenisi açılmaz ("uygulamayı güncelle"). `publish.dir` göreliyse `.fxprj` klasörüne göredir. Tag `value`/`timestamp` yazılmaz. Dosyalarda kayıt zamanı gibi her kayıtta değişen alan **yok** (git farkı temiz kalsın).
+- İçe aktarma (**Aç** ile; ilk kayıtta yer sorulur, klasör biçiminde yazılır): eski tek dosya `.fxprj` (`fxprj: 1`, proje tek JSON içinde; adı ve publish ayarı korunur) ve düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`).
 - **Değişiklik takibi:** her 1,5 sn FUXA'daki projenin özeti dosyadakiyle karşılaştırılır + editördeki bekleyen düzenleme sayısı (§4). Kaydedilmemiş değişiklik varsa başlıkta `●`, Yeni/Aç/Kapat'ta "Kaydet / Kaydetme / İptal" sorulur.
-- **Dışarıdan değişiklik (ajan/git/Syncthing):** açık `.fxprj`'in klasörü `fs.watch` ile izlenir (dosya değil klasör: atomik kayıtlar rename ile gelir; 700 ms bekleyip art arda yazmaları toplar). Dosya değişimi içerik özetiyle anlaşılır (`fxprj.fileHash`, `read().hash`, `write()` dönüşü); kendi kaydımız `cur.diskHash`'i güncellediği için tetiklemez. Değişiklik **sormadan, öğe öğe** uygulanır (`src/core/sync.js`): `diskBase→dosya` ile `liveBase→sunucu` farkları öğe düzeyinde (ekran, cihaz, script, …) üç yönlü birleştirilir; sonuç `/api/projectData` komutlarıyla (silmeler önce, cihaz/script ekrandan önce) gönderilir, sonra GET ile doğrulanır; tutmazsa (ör. `set-view` aynı adı atlar) ya da öğe dışı alan değiştiyse tüm proje gönderilir. Ekran/script değişikliği bağlantıları koparmaz; `set-device` sadece o cihazı yeniden başlatır. Editör kendi proje kopyasını tutup Kaydet'te tümünü geri yazdığı için sunucu değişince editör sayfası yeniden yüklenir (açık ekran localStorage'dan aynı açılır). Editördeki kaydedilmemiş başka öğeler korunur ve proje kirli kalır; sadece aynı öğe iki tarafta farklı değiştiyse "Diskteki hali al / Bendekini koru / Şimdilik hiçbirini alma" sorulur. Okunamayan (yarım yazılmış) dosya atlanır. Dosya → Diskten yeniden yükle tam yükleme yapar. Kaydet ve publish klasörü seçimi, alınmamış disk değişikliği varsa üzerine yazmadan önce sorar / durur.
+- **Dışarıdan değişiklik (ajan/git/Syncthing):** proje klasörü (`.fxprj`) ve `views/`, `devices/`, `scripts/` klasörleri `fs.watch` ile izlenir (dosya değil klasör: atomik kayıtlar rename ile gelir; 700 ms bekleyip art arda yazmaları, ör. ajanın birkaç dosyasını, toplar). Özet `.fxprj` + tüm parça dosyalarını kapsar. Dosya değişimi içerik özetiyle anlaşılır (`fxprj.fileHash`, `read().hash`, `write()` dönüşü); kendi kaydımız `cur.diskHash`'i güncellediği için tetiklemez. Değişiklik **sormadan, öğe öğe** uygulanır (`src/core/sync.js`): `diskBase→dosya` ile `liveBase→sunucu` farkları öğe düzeyinde (ekran, cihaz, script, …) üç yönlü birleştirilir; sonuç `/api/projectData` komutlarıyla (silmeler önce, cihaz/script ekrandan önce) gönderilir, sonra GET ile doğrulanır; tutmazsa (ör. `set-view` aynı adı atlar) ya da öğe dışı alan değiştiyse tüm proje gönderilir. Ekran/script değişikliği bağlantıları koparmaz; `set-device` sadece o cihazı yeniden başlatır. Editör kendi proje kopyasını tutup Kaydet'te tümünü geri yazdığı için sunucu değişince editör sayfası yeniden yüklenir (açık ekran localStorage'dan aynı açılır). Editördeki kaydedilmemiş başka öğeler korunur ve proje kirli kalır; sadece aynı öğe iki tarafta farklı değiştiyse "Diskteki hali al / Bendekini koru / Şimdilik hiçbirini alma" sorulur. Okunamayan (yarım yazılmış) dosya atlanır. Dosya → Diskten yeniden yükle tam yükleme yapar. Kaydet ve publish klasörü seçimi, alınmamış disk değişikliği varsa üzerine yazmadan önce sorar / durur.
 - **Publish** kaydedilmiş hali yazar; kaydedilmemiş değişiklik varsa önce kaydettirir. Önce plan (klasör, dosyalar, lint) gösterilir; lint HATA varsa yazmaz. Çıktı: `<publish.dir>/<ad>/<ad>.json` + `README.md` (hedef makinede ☰ → *Open Project*, önce *Save Project As* ile yedek, cihaz/tag özeti).
 - **Tag ekleme/düzenleme/silme** özgün Taglar ekranından yapılır; `.fxprj` dosyasına yazmak için Kaydet gerekir. Çekirdek `buildTag`, `tag:add` ve `tag:delete` API'leri korunur; ayrı düzenleme tablosu kullanılmaz.
 - **Çekirdek tag silme API'si:** flush → GET → `prepareTagRemoval` → kullanım uyarılı onay → set-device → editörü yeniden yükleme. Özgün editörün silme işlemi kendi akışını kullanır; bu çekirdek API uyarısıyla aynı davranışı sağladığı varsayılmamalı.
