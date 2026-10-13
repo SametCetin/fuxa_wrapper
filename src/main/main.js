@@ -7,9 +7,11 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { app, BrowserWindow, WebContentsView, Menu, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, dialog, ipcMain, shell, clipboard } = require('electron');
 
-const { FuxaServer } = require('./fuxa');
+const { FuxaServer, findNode } = require('./fuxa');
+const { startAgentServer } = require('./agentServer');
+const agentTools = require('../core/agent');
 const api = require('./fuxaApi');
 const fxprj = require('../core/fxprj');
 const model = require('../core/model');
@@ -873,6 +875,120 @@ function envMenu() {
   ];
 }
 
+// ---------------------------------------------------------------- yerel ajan kanalı (MCP)
+// AI ajanı (ör. Claude Code) src/mcp/bridge.js köprüsünü MCP sunucusu olarak başlatır; köprü
+// araç çağrılarını buradaki 127.0.0.1 kanalına iletir. Ajanın değişiklikleri açık projeye
+// canlı uygulanır (öğe öğe, bağlantılar gereksiz kopmaz) ve editörde hemen görünür; dosyaya
+// yazılmaz, proje "kaydedilmedi" olur. Kanal isteğe bağlıdır (Ayarlar → AI ajan bağlantısı).
+let agentServer = null;
+let agentQueue = Promise.resolve();
+
+function settings() {
+  return readJson(userFile('settings.json'), {});
+}
+
+function setSetting(patch) {
+  fs.writeFileSync(userFile('settings.json'), JSON.stringify({ ...settings(), ...patch }, null, 2));
+}
+
+function agentFile() {
+  return userFile('agent.json');
+}
+
+/** Ajanın değişikliğini uygula: sunucuya öğe öğe, editörü yenile (açık ekran korunur). */
+async function agentApply(target, summary, { show = null } = {}) {
+  const url = requireFuxa();
+  const mine = await api.getProject(url);
+  const changed = await pushProject(url, mine, target);
+  cur.liveDigest = model.digest(changed ? await api.getProject(url) : mine);
+  const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  cur.note = `AI ajanı (${time}): ${summary}`;
+  if (show) await agentShowView(show);
+  else if (changed && editorView && fuxaState.url && editorView.webContents.getURL().startsWith(fuxaState.url)) {
+    editorView.webContents.reload();
+  }
+}
+
+async function agentShowView(name) {
+  if (!editorView || !fuxaState.url) return;
+  const wc = editorView.webContents;
+  if (!wc.getURL().includes('/editor')) await showEditorPage('editor');
+  // Editör açık ekranı adıyla localStorage'da tutar; yeniden yüklenince o ekran açılır.
+  await wc.executeJavaScript(`localStorage.setItem('@frango.webeditor.currentview', ${JSON.stringify(name)})`).catch(() => {});
+  wc.reload();
+  editorWanted = true;
+  win.webContents.send('show-tab', 'editor');
+}
+
+const agentApp = {
+  info: () => ({ name: cur.doc.name, path: cur.path, env: cur.env, dirty: isDirty() }),
+  async live() {
+    if (editorView && editorView.webContents.getURL().includes('/editor')) await flushEditor();
+    return api.getProject(requireFuxa());
+  },
+  apply: agentApply,
+  showView: agentShowView,
+  tagValues: (ids) => api.getTagValues(requireFuxa(), ids),
+};
+const agentHandlers = agentTools.createHandlers(agentApp);
+
+/** Ajan çağrıları sıraya alınır ve uygulama boşa çıkınca (diyalog/kayıt bitince) çalışır. */
+function runAgentTool(name, args) {
+  const handler = Object.prototype.hasOwnProperty.call(agentHandlers, name) ? agentHandlers[name] : null;
+  if (!handler) return Promise.reject(new Error(`Bilinmeyen araç: ${name}`));
+  const job = agentQueue.then(async () => {
+    if (!cur.doc) throw new Error('fuxaw\'da açık proje yok. Tasarımcıdan bir proje açmasını iste.');
+    for (let i = 0; busy || polling; i++) {
+      if (i > 600) throw new Error('Uygulama meşgul (açık bir soru penceresi olabilir); biraz sonra tekrar dene.');
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    busy = true;
+    pushState();
+    try {
+      return await handler(args || {});
+    } finally {
+      busy = false;
+      pushState();
+    }
+  });
+  agentQueue = job.catch(() => {});
+  return job;
+}
+
+async function setAgentEnabled(on) {
+  if (agentServer) { agentServer.stop(); agentServer = null; }
+  if (on) agentServer = await startAgentServer({ file: agentFile(), run: runAgentTool });
+  setSetting({ agent: !!on });
+  buildMenu();
+}
+
+function agentCommand() {
+  const node = (() => { try { return findNode(app.isPackaged); } catch { return 'node'; } })();
+  const bridge = app.isPackaged
+    ? path.join(process.resourcesPath, 'mcp', 'bridge.js')
+    : path.join(__dirname, '..', 'mcp', 'bridge.js');
+  return `claude mcp add --scope user fuxaw -- "${node}" "${bridge}" --agent-file "${agentFile()}"`;
+}
+
+async function agentSetup() {
+  const cmd = agentCommand();
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'info',
+    title: APP_NAME,
+    message: 'AI ajanını bu uygulamaya bağla',
+    detail: `${agentServer ? 'Ajan bağlantısı açık.' : 'Ajan bağlantısı kapalı: önce Ayarlar → AI ajan bağlantısı.'}\n\n`
+      + 'Claude Code için bir kez şu komutu çalıştır (başka ajanlarda aynı komutu MCP sunucusu olarak ekle):\n\n'
+      + `${cmd}\n\n`
+      + 'Ajan açık projeyi canlı düzenler: ekran/script ekleme-değiştirme, tag ekleme, kontrol (lint), canlı tag değerleri. '
+      + 'Değişiklikler pencerede hemen görünür ama dosyaya yazılmaz; Kaydet senin kararın. Bağlantı sadece bu bilgisayarda çalışır.',
+    buttons: ['Komutu kopyala', 'Kapat'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response === 0) clipboard.writeText(cmd);
+}
+
 async function analyze() {
   if (!cur.doc) return null;
   const url = requireFuxa();
@@ -1093,6 +1209,12 @@ function buildMenu() {
         { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
         { type: 'separator' },
         { label: 'Bağlantı ortamı', submenu: envMenu() },
+        { type: 'separator' },
+        {
+          label: 'AI ajan bağlantısı (yerel)', type: 'checkbox', checked: !!agentServer,
+          click: (item) => setAgentEnabled(item.checked).catch((e) => message('error', 'Ajan bağlantısı açılamadı', e.message)),
+        },
+        { label: 'AI ajan kurulumu…', click: () => agentSetup() },
       ],
     },
     {
@@ -1230,9 +1352,13 @@ if (!app.requestSingleInstanceLock()) {
     createSplash();
     createWindow();
     startFuxa();
+    if (settings().agent) setAgentEnabled(true).catch(() => {});
     setInterval(poll, POLL_MS);
   });
 
   app.on('window-all-closed', () => app.quit());
-  app.on('will-quit', () => fuxa && fuxa.stop());
+  app.on('will-quit', () => {
+    if (agentServer) agentServer.stop();
+    if (fuxa) fuxa.stop();
+  });
 }

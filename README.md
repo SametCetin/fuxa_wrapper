@@ -22,6 +22,8 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
 | Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
 | Ayarlar → Bağlantı ortamı | Etkin ortamı seç (ör. dev / saha), yeni ortam ekle; eski projede bağlantı ayarlarını ortam dosyasına taşı |
+| Ayarlar → AI ajan bağlantısı (yerel) | AI ajanının açık projeyi canlı düzenlemesine izin verir (aşağıya bkz.) |
+| Ayarlar → AI ajan kurulumu… | Ajanı bağlama komutunu gösterir ve kopyalar |
 | Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
@@ -44,6 +46,16 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 Bağlantılar → ADS cihazının kalem simgesi → **Polling** alanını örneğin `100 ms` yapıp **OK**'e bas. Bu değer hem ADS / TCP aboneliğinin örnekleme süresini hem Yerel TwinCAT okuma süresini belirler; arayüze aktarım döngüsü de aynı cihaz ayarını kullanır. **OK** cihazı yeniden bağlar; Dosya → Kaydet ayarı `.fxprj`'e yazar.
 
 Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüsünü ayarlar; ADS cihazının süresini değiştirmez. Yerel TwinCAT okumalarında işlem süresi seçilen aralığa eklenir; 100 ms kesin zaman garantisi değildir. Bu düzeltme uygulamayla gelen ADS eklentisindedir; Publish ile JSON aktarılan bağımsız sunucunun sürücüsünü değiştirmez.
+
+### AI ajanı ile çalışma
+
+Bir AI ajanı (ör. Claude Code) açık projeyi uygulamanın içinden, sen izlerken düzenleyebilir:
+
+1. Ayarlar → **AI ajan bağlantısı (yerel)** işaretle.
+2. Ayarlar → **AI ajan kurulumu…** → *Komutu kopyala* → bir kez terminalde çalıştır (`claude mcp add … fuxaw …`).
+3. Ajana örneğin "pompa için bir ekran ekle, start/stop butonları MAIN.bStart'a yazsın" de.
+
+Ajan ekran/script ekleyip değiştirebilir, tag ekleyebilir, proje kontrolünü çalıştırabilir ve canlı tag değerlerini okuyabilir. Değişiklikler pencerede **hemen** görünür (üzerinde çalıştığı ekran editörde açılır), PLC bağlantıları gereksiz yere kopmaz. Ajan **kaydetmez**: başlıkta `●` görünür, beğenirsen Ctrl+S, beğenmezsen Dosya → Diskten yeniden yükle. Bağlantı sadece bu bilgisayarda çalışır, ağa açılmaz.
 
 ### Klasör biçimi
 

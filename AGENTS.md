@@ -28,12 +28,15 @@ Düz JavaScript (CommonJS), derleme adımı yok.
   - `publish.js`: klasöre çıkarma (proje JSON + README), lint hatasında yazmaz.
   - `sync.js`: dışarıdan değişen projeyi öğe öğe birleştirme (`merge`) ve sunucu komut planı (`planOps`).
   - `folder.js`: klasör biçimi (.fxprj biçim 2): ekran/bağlantı/script dosyalarına ayırma (`explode`), birleştirme (`implode`), sadece değişen dosyaları yazma.
+  - `agent.js`: yerel ajan kanalının araç işleyicileri (ekran/script/tag, lint, canlı değer); ana süreçten `app` arayüzü alır.
   - `envs.js`: bağlantı ortamları: cihaz bağlantı ayarlarını ayırma/birleştirme (`extract`/`compose`), `connections/<ortam>.json` okuma/yazma.
 - `.vscode/`: `launch.json` (Debug, Release, Hızlı EXE) ve `tasks.json` (Release, Hızlı EXE).
 - `src/main/`: Electron ana süreci.
   - `main.js`: pencere, menü, IPC, proje işlemleri (yeni/aç/kaydet/publish), değişiklik takibi.
   - `fuxa.js`: gömülü FUXA sunucusu: Node ve FUXA'yı bul, boş portta başlat, hazır olmasını bekle, durdur.
   - `fuxaApi.js`: FUXA REST çağrıları.
+  - `agentServer.js`: yerel ajan kanalı (127.0.0.1, rastgele port + anahtar, `<userData>/agent.json`).
+- `src/mcp/`: MCP köprüsü (`bridge.js`, stdio JSON-RPC, bağımlılıksız) ve araç tanımları (`tools.js`). Paketlenmişte `resources/mcp/`, uygulamayla gelen Node ile çalışır.
 - `src/preload.js`: arayüzün ana süreçle tek kapısı (`window.fxw`).
 - `src/renderer/splash.html` + `splash.css`: açılış penceresi (betiksiz). `main.js` → `createSplash` / `revealMain` (en az 1,2 sn görünür; açılışta verilen `.fxprj` ana pencere görünmeden yüklenir).
 - `src/renderer/`: pencere arayüzü (Editör/Taglar/Kontrol sekmeleri; komutlar sadece menüde, ayrıca düğme yok; karşılama ekranı, Publish ve Yeni tag pencereleri). Metinler DOM'a hep `textContent` ile basılır (`el()`); `innerHTML` kullanma (proje/tag/dosya adları dışarıdan gelir).
@@ -56,7 +59,7 @@ npm run dist         # kurulum paketi (Windows'ta NSIS)
 
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
-Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 78 test geçiyor (2026-10-13).
+Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 85 test geçiyor (2026-10-13).
 
 Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `electron.exe`).
 
@@ -99,6 +102,15 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
 - Proje adı FUXA'nın `name` alanı değil, `.fxprj`'in `name` alanıdır.
 - Proje açılınca FUXA cihazlara bağlanır (ADS vb.): açık proje bu makineden PLC'ye bağlanmaya çalışır. Test FUXA'sı olarak bu beklenen davranış.
 
+### Yerel ajan kanalı (MCP)
+
+- AI ajanı (ör. Claude Code) `src/mcp/bridge.js`'i MCP sunucusu olarak başlatır (`claude mcp add --scope user fuxaw -- "<node>" "<bridge.js>" --agent-file "<userData>/agent.json"`; komut Ayarlar → *AI ajan kurulumu…*'nda, kopyalanabilir). Köprü araç çağrılarını uygulamanın `127.0.0.1` kanalına (`agentServer.js`) iletir; port ve rastgele anahtar `agent.json`'dadır (her açılışta yenilenir, kapanınca silinir; zorla kapatmada kalırsa köprü `pid` ile anlar).
+- Kanal **isteğe bağlıdır**: Ayarlar → *AI ajan bağlantısı (yerel)* (`<userData>/settings.json` → `agent`). Ağa açılmaz.
+- Araçlar (`tools.js`): `get_project_info`, `get_view`, `put_view`, `delete_view`, `show_view`, `list_tags`, `add_tag`, `read_tag_values`, `get_script`, `put_script`, `delete_script`, `lint`. Kaydet/publish **yok**: ajan değişiklikleri canlı uygular, proje "kaydedilmedi" olur, dosyaya yazmak tasarımcının kararıdır.
+- Uygulama: `app.live()` (bekleyen çizimleri aktarır + GET) → işleyici hedef projeyi kurar → `pushProject` (öğe öğe, §3 dışarıdan değişiklikle aynı yol) → editör yeniden yüklenir; `put_view` ekranı editörde açar (localStorage `@frango.webeditor.currentview`). Durum satırında "AI ajanı (saat): …".
+- Ajan çağrıları sıraya alınır ve uygulama boşa çıkınca (açık soru penceresi, kayıt) çalışır; en fazla ~60 sn bekler.
+- Araç açıklamaları ve sunucu talimatları ajana yöneliktir; FUXA proje yapısını anlatmak için FUXA adı geçer (arayüz kuralının istisnası).
+
 ## 5. FUXA REST API (1.3.4, kimlik doğrulama yok, `secureEnabled: false`)
 
 | İş                   | Çağrı                                                             |
@@ -108,6 +120,7 @@ Arayüz değişikliklerini gerçek pencerede dene (bkz. §8, computer-use ile `e
 | Tag değerlerini oku  | `GET /api/getTagValue?ids=["t_...","t_..."]` (URL-encode)         |
 | Proje parçası kaydet | `POST /api/projectData`, body `{"cmd": "<komut>", "data": {...}}` |
 | Ayarlar (hazır mı)   | `GET /api/settings`                                               |
+| Canlı tag değerleri  | `GET /api/getTagValue?ids=[...]` → `[{id, value, timestamp}]`     |
 
 `/api/projectData` komutları: `set-view`, `set-device` (**sürücüyü yeniden başlatır**), `set-script`, `del-*`, `layout`, … `set-view` **aynı adlı başka ekran varsa sessizce atlar**. Kaynak: FUXA v1.3.4 `server/runtime/project/index.js` → `setProjectData`. FUXA komut satırı: `main.js --port N --userDir DİZİN`; `uiHost` sadece ayar dosyasından.
 
@@ -149,4 +162,4 @@ Yeni bir FUXA tuzağı öğrenildiğinde mümkünse `lint.js`'ye kural ve `tests
 3. Tag düzenleme (ekleme ✅ 2026-10-02, silme ✅ 2026-10-06; yeniden adlandır, adres değiştir; ad değişince script'lerdeki `$getTagId` adlarını da güncelle), script editörü, buton sihirbazları (toggle/momentary/lamba).
 4. Çökme sonrası kurtarma (FUXA veri klasöründe kalan kaydedilmemiş hali önerme).
 5. TwinCAT değişken seçici (GVL'den), ek lint kuralları.
-6. Dışarıdan düzenleme ✅ (2026-10-13): canlı öğe öğe birleştirme, bağlantı ortamları, klasör biçimi. Sırada: yerel ajan kanalı (MCP; ajan dosya yerine uygulamaya komut gönderir).
+6. Dışarıdan düzenleme ✅ (2026-10-13): canlı öğe öğe birleştirme, bağlantı ortamları, klasör biçimi. Yerel ajan kanalı (MCP) ✅ (2026-10-13). Sırada: bağlantı/ortam araçları, ajan için ekran şablonları (buton/lamba sihirbazları).
