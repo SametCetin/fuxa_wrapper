@@ -14,16 +14,12 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Proje Aç… (Ctrl+O) | `.fxprj` açar. Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) içe aktarılır |
 | Dosya → Son Projeler | Son açılan 10 proje |
 | Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar. Dosya açıldıktan sonra diskte değiştiyse (git, Syncthing…) üzerine yazmadan önce sorar |
-| Dosya → Klasör biçimine dönüştür… | Ekranları, bağlantıları ve script'leri ayrı dosyalara böler (aşağıya bkz.) |
 | Dosya → Diskten yeniden yükle | `.fxprj`'i diskten baştan yükler (normalde gerekmez, aşağıya bkz.) |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
 | Proje → Scriptler (Ctrl+6) | Gömülü script yönetimini doğrudan açar |
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
 | Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
-| Ayarlar → Bağlantı ortamı | Etkin ortamı seç (ör. dev / saha), yeni ortam ekle; eski projede bağlantı ayarlarını ortam dosyasına taşı |
-| Ayarlar → AI ajan bağlantısı (yerel) | AI ajanının açık projeyi canlı düzenlemesine izin verir (aşağıya bkz.) |
-| Ayarlar → AI ajan kurulumu… | Ajanı bağlama komutunu gösterir ve kopyalar |
 | Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
@@ -47,49 +43,6 @@ Bağlantılar → ADS cihazının kalem simgesi → **Polling** alanını örne�
 
 Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüsünü ayarlar; ADS cihazının süresini değiştirmez. Yerel TwinCAT okumalarında işlem süresi seçilen aralığa eklenir; 100 ms kesin zaman garantisi değildir. Bu düzeltme uygulamayla gelen ADS eklentisindedir; Publish ile JSON aktarılan bağımsız sunucunun sürücüsünü değiştirmez.
 
-### AI ajanı ile çalışma
-
-Bir AI ajanı (ör. Claude Code) açık projeyi uygulamanın içinden, sen izlerken düzenleyebilir:
-
-1. Ayarlar → **AI ajan bağlantısı (yerel)** işaretle.
-2. Ayarlar → **AI ajan kurulumu…** → *Komutu kopyala* → bir kez terminalde çalıştır (`claude mcp add … fuxaw …`).
-3. Ajana örneğin "pompa için bir ekran ekle, start/stop butonları MAIN.bStart'a yazsın" de.
-
-Ajan ekran/script ekleyip değiştirebilir, ekrana hazır şablonlar koyabilir (basılı tutma / değer yazma / toggle butonu, lamba, değer göstergesi, metin; bilinen editör tuzaklarından kaçınır), tag ekleyebilir, proje kontrolünü çalıştırabilir ve canlı tag değerlerini okuyabilir. Değişiklikler pencerede **hemen** görünür (üzerinde çalıştığı ekran editörde açılır), PLC bağlantıları gereksiz yere kopmaz. Ajan **kaydetmez**: başlıkta `●` görünür, beğenirsen Ctrl+S, beğenmezsen Dosya → Diskten yeniden yükle. Bağlantı sadece bu bilgisayarda çalışır, ağa açılmaz.
-
-### Klasör biçimi
-
-Proje büyüdükçe ya da git ve AI ajanıyla çalışırken Dosya → *Klasör biçimine dönüştür…* ile proje öğe başına dosyalara ayrılır:
-
-```
-fuxa1/
-├─ fuxa1.fxprj                genel ayarlar, layout, sıra
-├─ views/Ana Ekran.json       ekran öğeleri
-├─ views/Ana Ekran.svg        çizim (git farkı satır satır okunur)
-├─ devices/PLC1.json          bağlantı + tag'leri
-├─ scripts/Hesapla.json       script ayarları
-├─ scripts/Hesapla.js         script kodu
-└─ connections/dev.json       (bağlantı ortamları kullanılıyorsa)
-```
-
-- Dosyalar içlerindeki `id` ile eşlenir; ekranın adı değişince dosya adı da değişir. Yeni dosya eklemek (ör. ajanın yazdığı yeni script) yeni öğe, dosyayı silmek öğeyi silmek demektir.
-- Kaydet sadece değişen dosyaları yazar. Bu klasörde başka `.fxprj` olmamalı.
-- Klasör biçimi (`"fxprj": 2`) uygulamanın eski sürümleriyle açılmaz.
-
-### Bağlantı ortamları (dev / saha)
-
-İstersen bağlantıların adres, port, açık/kapalı ve okuma aralığı ayarları `.fxprj`'den ayrılır: Ayarlar → Bağlantı ortamı → *Bağlantı ayarlarını ortam dosyasına taşı…*. Sonra:
-
-```
-fuxa1.fxprj            ekranlar, tag'ler, script'ler (PLC adresi yok)
-connections/dev.json   geliştirme makinesi (ör. yerel TwinCAT)
-connections/saha.json  sahadaki PLC
-```
-
-- Hangi ortamla çalıştığın **kişiye özeldir** (git'e girmez); başlıkta `[dev]` gibi görünür. Ortam değiştirmek sadece bağlantıları yeniden kurar, ekranlar yerinde kalır.
-- Kaydet bağlantı ayarlarını etkin ortamın dosyasına yazar. *Yeni ortam…* etkin ortamın kopyasını oluşturur; adresi editörde ya da JSON dosyasında düzelt.
-- Publish penceresinde hangi ortamla çıkarılacağı seçilir. O ortamda ayarı olmayan bağlantı varsa publish yapılmaz.
-
 ### Publish çıktısı
 
 ```
@@ -108,7 +61,6 @@ Publish klasörü varsayılan olarak `.fxprj`'in yanındaki `publish/`; Publish 
   "name": "fuxa1",
   "fuxaVersion": "1.3.4",
   "publish": { "dir": "publish" },
-  "connections": { "dir": "connections", "default": "dev" },
   "project": { "...": "FUXA projesi (tag value/timestamp olmadan)" }
 }
 ```

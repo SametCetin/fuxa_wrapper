@@ -52,13 +52,6 @@
         ]
       },
       {
-        "from": "src/mcp",
-        "to": "mcp",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
         "from": "vendor/node",
         "to": "node",
         "filter": [

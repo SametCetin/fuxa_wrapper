@@ -37,9 +37,4 @@ async function projectData(base, cmd, data) {
   await request(base, '/api/projectData', { cmd, data });
 }
 
-/** Canlı tag değerleri: [{id, value, timestamp}, …] (bilinmeyen id için value null). */
-async function getTagValues(base, ids) {
-  return JSON.parse(await request(base, `/api/getTagValue?ids=${encodeURIComponent(JSON.stringify(ids))}`));
-}
-
-module.exports = { FuxaApiError, getProject, setProject, projectData, getTagValues };
+module.exports = { FuxaApiError, getProject, setProject, projectData };
