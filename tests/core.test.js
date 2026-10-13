@@ -132,6 +132,17 @@ test('.fxprj yaz/oku: proje aynı kalır, uçucu alanlar yazılmaz', () => {
   assert.deepEqual(fs.readdirSync(dir), ['p1.fxprj']); // geçici dosya kalmaz
 });
 
+test('.fxprj içerik özeti: dışarıdan değişiklik tespit edilir', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'p2.fxprj');
+  const written = fxprj.write(file, fxprj.newDoc('p2'));
+  assert.equal(fxprj.fileHash(file), written);
+  assert.equal(fxprj.read(file).hash, written);
+  fs.appendFileSync(file, ' ');
+  assert.notEqual(fxprj.fileHash(file), written);
+  assert.equal(fxprj.fileHash(path.join(dir, 'yok.fxprj')), null);
+});
+
 test('düz FUXA JSON içe aktarılır (eski <ad>_live.json)', () => {
   const { doc, imported } = fxprj.parse(LIVE_TEXT, 'C:/x/fuxa1_live.json');
   assert.equal(imported, true);
