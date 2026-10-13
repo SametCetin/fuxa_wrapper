@@ -13,6 +13,7 @@ const crypto = require('node:crypto');
 const model = require('./model');
 const lintmod = require('./lint');
 const { tagTable, buildTag } = require('./tags');
+const widgets = require('./widgets');
 
 class AgentError extends Error {}
 
@@ -118,6 +119,21 @@ function createHandlers(app) {
       target.hmi.views = views(target).filter((x) => x.id !== v.id);
       await app.apply(target, `ekran "${v.name}" silindi`);
       return { deleted: v.id, name: v.name, lint: lintSummary(target) };
+    },
+
+    async add_widgets({ view, widgets: specs, show = true }) {
+      const prj = await app.live();
+      const v = find(views(prj), view, 'ekran');
+      let res;
+      try {
+        res = widgets.addWidgets(prj, v.id, specs);
+      } catch (e) {
+        if (e instanceof widgets.WidgetError) throw new AgentError(e.message);
+        throw e;
+      }
+      const what = res.added.map((a) => a.kind).join(', ');
+      await app.apply(res.target, `"${v.name}" ekranına eklendi: ${what}`, { show: show ? v.name : null });
+      return { view: v.name, added: res.added, scripts_created: res.scripts, lint: lintSummary(res.target) };
     },
 
     async show_view({ view }) {

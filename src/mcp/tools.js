@@ -63,6 +63,52 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { view: ref('Ekran') }, required: ['view'], additionalProperties: false },
   },
   {
+    name: 'add_widgets',
+    description: 'Ekrana hazır öğeler ekler; bilinen tuzaklardan kaçınır, items ve SVG\'yi birlikte doğru kurar. Elle buton/lamba kurmak yerine bunu tercih et. '
+      + 'Şablonlar: momentary (basılıyken 1, bırakınca 0), set (tıklayınca value yazar; Boolean\'a sadece 1/0), '
+      + 'toggle (Boolean tag\'i server script ile tersine çevirir; script yoksa oluşturulur), lamp (Boolean\'a göre renk değiştiren yuvarlak), '
+      + 'value (sayı göstergesi, fraction_digits), label (sabit metin). Konum/boyut piksel; ekran genelde 1024x768.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        view: ref('Ekran'),
+        widgets: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 100,
+          items: {
+            type: 'object',
+            properties: {
+              kind: { type: 'string', enum: ['momentary', 'set', 'toggle', 'lamp', 'value', 'label'] },
+              tag: { type: 'string', description: 'Tag adı ya da id\'si (label hariç gerekli)' },
+              device: { type: 'string', description: 'Tag adı birden çok bağlantıda varsa bağlantı adı' },
+              feedback_tag: { type: 'string', description: 'Buton rengi için okunacak tag (varsayılan: tag)' },
+              x: { type: 'number' },
+              y: { type: 'number' },
+              width: { type: 'number' },
+              height: { type: 'number' },
+              text: { type: 'string', description: 'Buton yazısı / label metni' },
+              name: { type: 'string' },
+              value: { type: ['string', 'number'], description: 'set için yazılacak değer (varsayılan 1)' },
+              fraction_digits: { type: 'integer' },
+              font_size: { type: 'number' },
+              colors: {
+                type: 'object',
+                description: 'Renkler (#rrggbb ya da #rrggbbaa): off = 0 iken, on = 1 iken, text = buton yazısı',
+                properties: { off: { type: 'string' }, on: { type: 'string' }, text: { type: 'string' } },
+                additionalProperties: false,
+              },
+            },
+            required: ['kind', 'x', 'y'],
+          },
+        },
+        show: { type: 'boolean', default: true },
+      },
+      required: ['view', 'widgets'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'list_tags',
     description: 'Tag tablosu: bağlantı, ad, id, tip, adres ve kullanıldığı yerler. Filtreler isteğe bağlı.',
     inputSchema: {

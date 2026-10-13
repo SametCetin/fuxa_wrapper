@@ -55,7 +55,7 @@ Bir AI ajanı (ör. Claude Code) açık projeyi uygulamanın içinden, sen izler
 2. Ayarlar → **AI ajan kurulumu…** → *Komutu kopyala* → bir kez terminalde çalıştır (`claude mcp add … fuxaw …`).
 3. Ajana örneğin "pompa için bir ekran ekle, start/stop butonları MAIN.bStart'a yazsın" de.
 
-Ajan ekran/script ekleyip değiştirebilir, tag ekleyebilir, proje kontrolünü çalıştırabilir ve canlı tag değerlerini okuyabilir. Değişiklikler pencerede **hemen** görünür (üzerinde çalıştığı ekran editörde açılır), PLC bağlantıları gereksiz yere kopmaz. Ajan **kaydetmez**: başlıkta `●` görünür, beğenirsen Ctrl+S, beğenmezsen Dosya → Diskten yeniden yükle. Bağlantı sadece bu bilgisayarda çalışır, ağa açılmaz.
+Ajan ekran/script ekleyip değiştirebilir, ekrana hazır şablonlar koyabilir (basılı tutma / değer yazma / toggle butonu, lamba, değer göstergesi, metin; bilinen editör tuzaklarından kaçınır), tag ekleyebilir, proje kontrolünü çalıştırabilir ve canlı tag değerlerini okuyabilir. Değişiklikler pencerede **hemen** görünür (üzerinde çalıştığı ekran editörde açılır), PLC bağlantıları gereksiz yere kopmaz. Ajan **kaydetmez**: başlıkta `●` görünür, beğenirsen Ctrl+S, beğenmezsen Dosya → Diskten yeniden yükle. Bağlantı sadece bu bilgisayarda çalışır, ağa açılmaz.
 
 ### Klasör biçimi
 
