@@ -14,6 +14,7 @@ FUXA HMI projelerini kendi penceresi olan bir uygulamada açar, düzenler ve kay
 | Dosya → Proje Aç… (Ctrl+O) | `.fxprj` açar. Düz FUXA JSON'u (editörde *Save Project As*, eski `<ad>_live.json`) içe aktarılır |
 | Dosya → Son Projeler | Son açılan 10 proje |
 | Dosya → Kaydet (Ctrl+S) / Farklı Kaydet (Ctrl+Shift+S) | Editördeki hali `.fxprj`'e yazar. Dosya açıldıktan sonra diskte değiştiyse (git, Syncthing…) üzerine yazmadan önce sorar |
+| Dosya → Klasör biçimine dönüştür… | Ekranları, bağlantıları ve script'leri ayrı dosyalara böler (aşağıya bkz.) |
 | Dosya → Diskten yeniden yükle | `.fxprj`'i diskten baştan yükler (normalde gerekmez, aşağıya bkz.) |
 | Dosya → Publish (klasöre)… (Ctrl+Shift+P) | Kaydedilmiş projeyi `<publish klasörü>/<ad>/` altına yazar |
 | Proje → Editör / Taglar / Kontrol (Ctrl+1/2/3) | Sekmeler |
@@ -43,6 +44,25 @@ Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceres
 Bağlantılar → ADS cihazının kalem simgesi → **Polling** alanını örneğin `100 ms` yapıp **OK**'e bas. Bu değer hem ADS / TCP aboneliğinin örnekleme süresini hem Yerel TwinCAT okuma süresini belirler; arayüze aktarım döngüsü de aynı cihaz ayarını kullanır. **OK** cihazı yeniden bağlar; Dosya → Kaydet ayarı `.fxprj`'e yazar.
 
 Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüsünü ayarlar; ADS cihazının süresini değiştirmez. Yerel TwinCAT okumalarında işlem süresi seçilen aralığa eklenir; 100 ms kesin zaman garantisi değildir. Bu düzeltme uygulamayla gelen ADS eklentisindedir; Publish ile JSON aktarılan bağımsız sunucunun sürücüsünü değiştirmez.
+
+### Klasör biçimi
+
+Proje büyüdükçe ya da git ve AI ajanıyla çalışırken Dosya → *Klasör biçimine dönüştür…* ile proje öğe başına dosyalara ayrılır:
+
+```
+fuxa1/
+├─ fuxa1.fxprj                genel ayarlar, layout, sıra
+├─ views/Ana Ekran.json       ekran öğeleri
+├─ views/Ana Ekran.svg        çizim (git farkı satır satır okunur)
+├─ devices/PLC1.json          bağlantı + tag'leri
+├─ scripts/Hesapla.json       script ayarları
+├─ scripts/Hesapla.js         script kodu
+└─ connections/dev.json       (bağlantı ortamları kullanılıyorsa)
+```
+
+- Dosyalar içlerindeki `id` ile eşlenir; ekranın adı değişince dosya adı da değişir. Yeni dosya eklemek (ör. ajanın yazdığı yeni script) yeni öğe, dosyayı silmek öğeyi silmek demektir.
+- Kaydet sadece değişen dosyaları yazar. Bu klasörde başka `.fxprj` olmamalı.
+- Klasör biçimi (`"fxprj": 2`) uygulamanın eski sürümleriyle açılmaz.
 
 ### Bağlantı ortamları (dev / saha)
 

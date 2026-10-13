@@ -19,6 +19,7 @@ const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
 const sync = require('../core/sync');
 const envs = require('../core/envs');
+const folder = require('../core/folder');
 const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
 
@@ -590,6 +591,10 @@ function watchProjectFile(filePath) {
   };
   const base = path.basename(filePath).toLowerCase();
   watch(path.dirname(filePath), (name) => { if (!name || name === base) changed(); });
+  // Klasör biçiminde ekran/bağlantı/script dosyaları (views/, devices/, scripts/)
+  if (cur.doc && cur.doc.parts) {
+    for (const kind of Object.keys(folder.KINDS)) watch(path.join(path.dirname(filePath), kind), () => changed());
+  }
   const dir = cur.env && cur.doc && envs.isSplit(cur.doc) ? envs.resolveDir(cur.doc, filePath) : null;
   if (dir && !samePath(dir, path.dirname(filePath))) {
     watch(dir, (name) => {
@@ -724,6 +729,47 @@ async function reloadFromDisk({ confirm = true } = {}) {
   const p = cur.path;
   const { doc, hash, env, missing } = readDisk(p, cur.env);
   await loadDoc(doc, p, envNote(env, missing) || 'Proje diskten yeniden yüklendi.', hash, env, missing);
+}
+
+// ---------------------------------------------------------------- klasör biçimi
+/** Tek dosyadan klasör biçimine (fxprj 2): ekran/bağlantı/script ayrı dosyalara, proje kaydedilir. */
+async function convertToFolder() {
+  if (!cur.doc || cur.doc.parts) return;
+  if (!cur.path) {
+    await message('info', 'Önce projeyi bir .fxprj dosyasına kaydet.');
+    return;
+  }
+  const root = path.dirname(cur.path);
+  const others = fs.readdirSync(root).filter((f) => f.toLowerCase().endsWith(fxprj.EXT) && !samePath(path.join(root, f), cur.path));
+  if (others.length) {
+    throw new Error(`Bu klasörde başka proje dosyası var (${others.join(', ')}). `
+      + 'Klasör biçimi için projeyi Farklı Kaydet ile kendi klasörüne taşı.');
+  }
+  const used = Object.keys(folder.KINDS).filter((k) => {
+    try { return fs.readdirSync(path.join(root, k)).length > 0; } catch { return false; }
+  });
+  if (used.length) throw new Error(`${used.map((k) => `${k}/`).join(', ')} klasörü zaten var ve boş değil; üzerine yazılmadı.`);
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: APP_NAME,
+    message: 'Proje klasör biçimine dönüştürülsün mü?',
+    detail: `Ekranlar views/, bağlantılar devices/, script'ler scripts/ klasörüne ayrı dosyalar olarak yazılır `
+      + '(ekran çizimi .svg, script kodu .js). Git farkları öğe başına olur, AI ajanı tek bir ekranı düzenleyebilir.\n\n'
+      + 'Klasör biçimindeki proje bu uygulamanın eski sürümleriyle açılmaz. Proje kaydedilir (kaydedilmemiş değişiklikler dahil).',
+    buttons: ['Dönüştür ve kaydet', 'İptal'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response !== 0) return;
+  cur.doc = { ...cur.doc, parts: {} };
+  if (await saveProject(false)) {
+    watchProjectFile(cur.path);
+    cur.note = 'Proje klasör biçimine dönüştürüldü (views/, devices/, scripts/).';
+  } else {
+    delete cur.doc.parts;
+  }
+  buildMenu();
 }
 
 // ---------------------------------------------------------------- bağlantı ortamları
@@ -1021,6 +1067,7 @@ function buildMenu() {
         { label: 'Kaydet', accelerator: 'CmdOrCtrl+S', click: run(() => saveProject(false)) },
         { label: 'Farklı Kaydet…', accelerator: 'CmdOrCtrl+Shift+S', click: run(() => saveProject(true)) },
         { label: 'Diskten yeniden yükle', click: run(() => reloadFromDisk()) },
+        { label: 'Klasör biçimine dönüştür…', visible: !!(cur.doc && cur.path && !cur.doc.parts), click: run(convertToFolder) },
         { type: 'separator' },
         { label: 'Publish (klasöre)…', accelerator: 'CmdOrCtrl+Shift+P', click: send('publish') },
         { type: 'separator' },
