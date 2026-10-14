@@ -39,6 +39,7 @@ Düz JavaScript (CommonJS), derleme adımı yok.
 - `src/renderer/`: pencere arayüzü (Editör/Taglar/Kontrol sekmeleri; komutlar sadece menüde, ayrıca düğme yok; karşılama ekranı, Publish ve Yeni tag pencereleri). Metinler DOM'a hep `textContent` ile basılır (`el()`); `innerHTML` kullanma (proje/tag/dosya adları dışarıdan gelir).
 - `fuxa-runtime/package.json`: uygulamayla gelen FUXA sürümü (sabit `1.3.4`) ve özgün ADS sürücüsünün `ads-client` bağımlılığı (sabit `2.1.0`). `npm install` sonrası `postinstall` kurar.
 - `integrations/native-ads/`: uygulamayla gelen offline ADS eklentisi; `index.js` başlatıcı adaptörü, `adsclient/` sürücü ve Windows yerel köprüsü. Orijinal editör paketinin dosyaları değiştirilmez. Başlatıcı varsayılan eklentilerin ardından `loadPlugin("FuxawADS", ...)` ile sürücüyü ayrı yuvaya kaydeder; `device-loader.js` cihaz yöneticisini require öncesinde bellekte genişletir ve özgün `ADSclient` sürücüsüne dokunmaz; Eklenti kayıt/listesi ile kurma/kaldırma işlemleri yalnızca süreç belleğinde uyarlanır; Özgün `ads-client` ve uygulamayla gelen `@fuxaw/ads-plugin` ayrı kartlar/türlerdir. Bizim eklentinin çevrimdışı kur/kaldır seçimi userData altındaki `fuxaw-ads-plugin.json` dosyasında tutulur; kaldırma etkin bağlantılarını keser. `editor.js`, servis edilen ana betiğe standart ADS formunda yöntem seçimi ve `adsTransport` alanının kayıtta korunmasını ekler. Bu yükleme noktaları yeni bileşen sürümünde doğrulanmalı. `npm run install:ads` bağımlılıkları kurar, `npm run setup:ads` yerel köprüyü hazırlar. Paket: `resources/plugins/native-ads` (bağımlılıkları dahil).
+- `patch/` + `scripts/build-patch.js`: **hedef makine yaması** (kullanıcı kararı, 2026-10-14): hedefte FUXA 1.3.4 normal npm ile kurulur (`npm install -g @frangoteam/fuxa@1.3.4`), `npm run dist:patch` `dist/patch/fuxaw-yama-<sürüm>/` + zip üretir (~0,4 MB, internetsiz). `uygula.cmd` eklentiyi `<FUXA>/fuxaw/` altına kopyalar ve `main.js`'in başına tek satır (`// fuxaw-yama`) ekler; `hook.js` uygulamadaki başlatıcıyla aynı bellek içi yüklemeyi yapar: ADS (fuxaw) sürücüsü (Yerel TwinCAT / ADS-TCP, Polling) + editörde ADS formu. Tag seçici düzeltmesi yamaya girmez (`tagClear: false`). Bu, hedef için "orijinal dosyalar değiştirilmez" kuralının tek istisnasıdır; `geri-al.cmd` satırı çıkarır, `main.js` birebir eski haline döner. FUXA çalışıyorsa betikler durur (`-Durdur` ile kapatır). npm ile FUXA güncellenirse yama silinir, yeniden uygulanır.
 - `scripts/fetch-node.js`: kurulum paketine konacak Node.js'i `vendor/node/`'a indirir (sabit sürüm, SHA256 doğrulamalı).
 - `package.json` → `build`: electron-builder ayarları (NSIS / AppImage+deb / dmg, `.fxprj` dosya ilişkilendirme).
 
@@ -51,6 +52,7 @@ npm start -- C:\yol\proje.fxprj
 npm test             # node --test: çekirdek modüller (FUXA/Electron gerekmez)
 npm run dist:dir     # dist/win-unpacked (kurulumsuz deneme)
 npm run dist:fast    # dist/fast/win-unpacked (Windows x64, imzasız; NSIS yok)
+npm run dist:patch   # dist/patch/fuxaw-yama-*: hedefteki npm FUXA 1.3.4 için yama (bkz. §1 patch/)
 npm run dist         # kurulum paketi (Windows'ta NSIS)
 ```
 
