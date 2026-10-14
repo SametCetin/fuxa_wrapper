@@ -6,7 +6,7 @@
 # Safe to run again: whatever is already installed in the right version is skipped, the patch is always refreshed.
 # Usage: install-fuxa.cmd [-InstallDir C:\ProgramData\fuxa] [-Port 1881] [-Stop] [-NoStart]
 #
-# TEMPLATE: scripts/build-patch.js fills in the __...__ values (versions, embedded ADS plugin) and wraps
+# TEMPLATE: scripts/build-installer.js fills in the __...__ values (versions, embedded ADS plugin) and wraps
 # this into a single self-contained install-fuxa.cmd. Do not run this file directly.
 # Messages are ASCII only: Windows PowerShell 5.1 consoles garble UTF-8.
 param(
@@ -26,7 +26,7 @@ $FuxaVersion = '__FUXA_VERSION__'
 $PluginZip = @'
 __PLUGIN_ZIP__
 '@
-if ($PackageName.StartsWith('__')) { throw 'This is the source template. Build the installer with "npm run dist:patch" and run dist\patch\...\install-fuxa.cmd.' }
+if ($PackageName.StartsWith('__')) { throw 'This is the source template. Build the installer with "npm run dist:installer" and run dist\installer\...\install-fuxa.cmd.' }
 if (-not [Environment]::Is64BitOperatingSystem) { throw 'This installer requires 64-bit Windows.' }
 $Tar = Join-Path $env:SystemRoot 'System32\tar.exe'
 
@@ -55,9 +55,9 @@ try {
   # 1. Node.js
   $current = if (Test-Path $Node) { (& $Node -v).Trim() } else { '' }
   if ($current -eq $NodeVersion) {
-    Write-Host "[1/4] Node.js $NodeVersion already installed."
+    Write-Host "[1/5] Node.js $NodeVersion already installed."
   } else {
-    Write-Host "[1/4] Downloading Node.js $NodeVersion..."
+    Write-Host "[1/5] Downloading Node.js $NodeVersion..."
     $base = "node-$NodeVersion-win-x64"
     $dist = "https://nodejs.org/dist/$NodeVersion"
     $zip = Join-Path $tmp "$base.zip"
@@ -77,9 +77,9 @@ try {
   $env:Path = "$NodeDir;$env:Path"
   $fcurrent = if (Test-Path (Join-Path $Fuxa 'package.json')) { (Get-Content (Join-Path $Fuxa 'package.json') -Raw | ConvertFrom-Json).version } else { '' }
   if ($fcurrent -eq $FuxaVersion) {
-    Write-Host "[2/4] FUXA $FuxaVersion already installed."
+    Write-Host "[2/5] FUXA $FuxaVersion already installed."
   } else {
-    Write-Host "[2/4] Installing FUXA $FuxaVersion from npm (may take a few minutes)..."
+    Write-Host "[2/5] Installing FUXA $FuxaVersion from npm (may take a few minutes)..."
     New-Item -ItemType Directory -Force $App | Out-Null
     & $Node (Join-Path $NodeDir 'node_modules\npm\bin\npm-cli.js') install "@frangoteam/fuxa@$FuxaVersion" `
       --prefix $App --ignore-scripts --no-audit --no-fund --loglevel=error
@@ -100,7 +100,7 @@ try {
   }
 
   # 3. fuxaw patch: plugin into <FUXA>\fuxaw\, one line at the top of <FUXA>\main.js (backup: main.js.fuxaw-backup).
-  Write-Host '[3/4] Applying the fuxaw patch...'
+  Write-Host '[3/5] Applying the fuxaw patch...'
   $pkg = Get-Content (Join-Path $Fuxa 'package.json') -Raw | ConvertFrom-Json
   if ($pkg.version -ne $FuxaVersion) { throw "The patch is for FUXA $FuxaVersion; installed version is $($pkg.version)." }
   $pluginZipFile = Join-Path $tmp 'fuxaw-plugin.zip'
@@ -139,7 +139,40 @@ set "PATH=%~dp0node;%PATH%"
 cd /d "%~dp0data"
 "%~dp0node\node.exe" "%~dp0app\node_modules\@frangoteam\fuxa\main.js" --port $Port --userDir "%~dp0data"
 "@ -replace "`r?`n", "`r`n" | Set-Content $launcher -Encoding Ascii
-Write-Host "[4/4] Launcher written: $launcher"
+# open-editor.ps1: what the "FUXA Editor" shortcut runs. Starts FUXA (minimized) if it is not running, then opens the editor.
+$openEditor = Join-Path $InstallDir 'open-editor.ps1'
+@'
+# fuxaw install: opens the FUXA editor; starts FUXA (start-fuxa.cmd, minimized window) first if it is not running.
+$url = 'http://127.0.0.1:__PORT__'
+function Test-Fuxa { try { Invoke-WebRequest "$url/api/settings" -UseBasicParsing -TimeoutSec 2 | Out-Null; $true } catch { $false } }
+if (-not (Test-Fuxa)) {
+  Start-Process -FilePath (Join-Path $PSScriptRoot 'start-fuxa.cmd') -WorkingDirectory $PSScriptRoot -WindowStyle Minimized
+  for ($i = 0; $i -lt 60 -and -not (Test-Fuxa); $i++) { Start-Sleep -Seconds 1 }
+}
+Start-Process "$url/editor"
+'@.Replace('__PORT__', "$Port") -replace "`r?`n", "`r`n" | Set-Content $openEditor -Encoding Ascii
+Write-Host "[4/5] Launchers written: $launcher, $openEditor"
+
+# 5. Shortcuts (current user, no admin): editor in the Start menu and on the desktop, install folder in the Start menu.
+#    uninstall-fuxa.ps1 removes the same names.
+$shell = New-Object -ComObject WScript.Shell
+$menuDir = Join-Path ([Environment]::GetFolderPath('Programs')) 'FUXA'
+New-Item -ItemType Directory -Force $menuDir | Out-Null
+foreach ($dir in $menuDir, [Environment]::GetFolderPath('Desktop')) {
+  Remove-Item (Join-Path $dir 'FUXA Editor.url') -ErrorAction SilentlyContinue  # earlier version of this shortcut
+  $lnk = $shell.CreateShortcut((Join-Path $dir 'FUXA Editor.lnk'))
+  $lnk.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$openEditor`""
+  $lnk.WorkingDirectory = $InstallDir
+  $lnk.WindowStyle = 7
+  $lnk.Description = "FUXA editor (http://127.0.0.1:$Port/editor); starts FUXA if needed"
+  $lnk.Save()
+}
+$lnk = $shell.CreateShortcut((Join-Path $menuDir 'FUXA Project Folder.lnk'))
+$lnk.TargetPath = $InstallDir
+$lnk.Description = 'FUXA install folder (data\ = project, settings, logs, backups)'
+$lnk.Save()
+Write-Host "[5/5] Shortcuts: FUXA Editor (Start menu, desktop), FUXA Project Folder (Start menu)"
 
 Write-Host ''
 if ($NoStart) {

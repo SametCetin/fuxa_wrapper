@@ -81,7 +81,7 @@ npm start          # uygulamayı geliştirme modunda açar
 npm test           # çekirdek testler
 npm run dist:dir   # kurulumsuz paket: dist/win-unpacked/fuxaw.exe
 npm run dist:fast  # imzalamadan hızlı Windows paketi: dist/fast/win-unpacked/fuxaw.exe
-npm run dist:patch # hedef makine kurulumu: dist/patch/fuxaw-install-*.zip (install-fuxa.cmd)
+npm run dist:installer # hedef makine kurulumu: dist/installer/fuxaw-install-*.zip (install-fuxa.cmd)
 npm run dist       # kurulum paketi
 ```
 
@@ -107,8 +107,8 @@ fuxa_wrapper/
 │  └─ renderer/             ← pencere arayüzü (index.html, app.css, app.js) + açılış penceresi (splash.html/css)
 ├─ fuxa-runtime/package.json ← uygulamayla gelen FUXA sürümü (1.3.4)
 ├─ scripts/fetch-node.js    ← paket için Node.js indirme
-├─ scripts/build-patch.js   ← hedef makine kurulumu (dist:patch)
-├─ patch/                   ← hedef kurulum betikleri ve README'si (install-fuxa/uninstall-fuxa)
+├─ scripts/build-installer.js   ← hedef makine kurulumu (dist:installer)
+├─ installer/               ← hedef kurulum betikleri ve README'si (install-fuxa/uninstall-fuxa)
 └─ tests/
    ├─ core.test.js
    └─ fixtures/fuxa1_live.json ← gerçek projenin kopyası (test verisi)
@@ -125,4 +125,4 @@ fuxa_wrapper/
 
 Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe bağımsız bir eklentidir. Orijinal editör paketinin dosyaları değiştirilmez; eklenti uygulamayla birlikte gelir ve başlangıçta çevrimdışı yüklenir. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
 
-**Hedef makine:** `npm run dist:patch` paketindeki `install-fuxa.cmd` Node.js'i ve FUXA 1.3.4'ü internetten `C:\ProgramData\fuxa` altına kurar, ADS (fuxaw) sürücüsünü ve editör formunu yamayla ekler, FUXA'yı başlatır (sonraki açılışlarda `start-fuxa.cmd`). `uninstall-fuxa.cmd` kaldırır, projeyi (`data\`) korur. Proje, Publish klasöründeki `download-project.cmd` ile yüklenir. Ayrıntı: [patch/README.md](patch/README.md).
+**Hedef makine:** `npm run dist:installer` paketindeki `install-fuxa.cmd` Node.js'i ve FUXA 1.3.4'ü internetten `C:\ProgramData\fuxa` altına kurar, ADS (fuxaw) sürücüsünü ve editör formunu yamayla ekler, FUXA'yı başlatır (sonraki açılışlarda `start-fuxa.cmd`). `uninstall-fuxa.cmd` kaldırır, projeyi (`data\`) korur. Proje, Publish klasöründeki `download-project.cmd` ile yüklenir. Ayrıntı: [installer/README.md](installer/README.md).
