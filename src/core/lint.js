@@ -3,6 +3,7 @@
 // Bkz. AGENTS.md "Tuzaklar". Her bulgu {level, where, message}; level "HATA" publish'i durdurur.
 
 const model = require('./model');
+const { t } = require('./i18n');
 
 const ERROR = 'HATA';
 const WARN = 'UYARI';
@@ -44,7 +45,7 @@ function lint(items) {
   const seen = new Map();
   for (const [k, v] of model.itemsOfKind(items, 'view')) {
     if (seen.has(v.name)) {
-      add(ERROR, model.label(k, v), `aynı adlı başka ekran var (${seen.get(v.name)}); bu ekran kaydedilmez`);
+      add(ERROR, model.label(k, v), t('lint.duplicateView', { id: seen.get(v.name) }));
     }
     seen.set(v.name, v.id);
   }
@@ -55,7 +56,7 @@ function lint(items) {
       const where = `${vlabel} / ${ga.name || gid}`;
       const prop = ga.property || {};
       const vid = prop.variableId;
-      if (vid && !tags.has(vid)) add(ERROR, where, `bağlı tag yok: ${vid}`);
+      if (vid && !tags.has(vid)) add(ERROR, where, t('lint.missingTag', { id: vid }));
       const evs = prop.events || [];
       for (const ev of evs) {
         const act = ev.action;
@@ -63,20 +64,20 @@ function lint(items) {
         const evname = `${ev.type}→${act}`;
         if (act === 'onSetValue' || act === 'onToggleValue') {
           const tid = eventTagId(opts);
-          if (!tid) { add(ERROR, where, `${evname}: tag seçilmemiş`); continue; }
-          if (!tags.has(tid)) { add(ERROR, where, `${evname}: tag yok (${tid})`); continue; }
+          if (!tid) { add(ERROR, where, t('lint.eventNoTag', { event: evname })); continue; }
+          if (!tags.has(tid)) { add(ERROR, where, t('lint.eventMissingTag', { event: evname, id: tid })); continue; }
           const { tag, dev } = tags.get(tid);
           if (isBoolAds(tag, dev)) {
             if (act === 'onToggleValue') {
-              add(ERROR, where, `${evname} Boolean ADS tag'inde TRUE→FALSE yazamaz (${tag.name}); toggle script'i kullan`);
+              add(ERROR, where, t('lint.boolToggle', { event: evname, tag: tag.name }));
             } else if (BOOL_TEXT.has(String(ev.actparam ?? '').trim().toLowerCase())) {
-              add(ERROR, where, `${evname} değeri '${ev.actparam}': Boolean ADS tag'ine metin true/false her zaman TRUE yazılır; 1 / 0 kullan`);
+              add(ERROR, where, t('lint.boolText', { event: evname, value: ev.actparam }));
             }
           }
         } else if (act === 'onRunScript') {
-          if (!scripts.has(ev.actparam)) add(ERROR, where, `${evname}: script yok (${ev.actparam})`);
+          if (!scripts.has(ev.actparam)) add(ERROR, where, t('lint.missingScript', { event: evname, id: ev.actparam }));
         } else if (PAGE_ACTIONS.has(act)) {
-          if (ev.actparam && !views.has(ev.actparam)) add(WARN, where, `${evname}: ekran yok (${ev.actparam})`);
+          if (ev.actparam && !views.has(ev.actparam)) add(WARN, where, t('lint.missingView', { event: evname, id: ev.actparam }));
         }
       }
       // Boolean tag'e bağlı öğe, renk aralığı FUXA varsayılanında (20–80, renk boş)
@@ -84,14 +85,14 @@ function lint(items) {
         const ranges = prop.ranges || [];
         const is01 = (x) => x === 0 || x === 1;
         if (ranges.length && !ranges.some((r) => is01(r.min) || is01(r.max))) {
-          add(WARN, where, "Boolean tag'e bağlı ama renk aralıkları 0/1 değil (varsayılan 20–80?)");
+          add(WARN, where, t('lint.boolRanges'));
         }
       }
       // Momentary: mousedown 1 var ama mouseout 0 yok
       const downs = evs.some((e) => e.type === 'mousedown' && e.action === 'onSetValue');
       const outs = evs.some((e) => e.type === 'mouseout' && e.action === 'onSetValue');
       if (downs && !outs) {
-        add(WARN, where, 'momentary buton: mouseout → 0 yok, dışarıda bırakılırsa değer 1\'de kalabilir');
+        add(WARN, where, t('lint.momentary'));
       }
     }
   }
@@ -104,7 +105,7 @@ function lint(items) {
         ? byName.has(`${dname}\0${tname}`)
         : [...byName.keys()].some((key) => key.split('\0')[1] === tname);
       if (!ok) {
-        add(ERROR, model.label(k, sc), `$getTagId: tag bulunamadı '${tname}'${dname !== undefined ? ` (${dname})` : ''}`);
+        add(ERROR, model.label(k, sc), t('lint.getTagId', { name: tname, device: dname !== undefined ? ` (${dname})` : '' }));
       }
     }
   }

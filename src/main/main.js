@@ -21,6 +21,9 @@ const { buildAdsDevice } = require('../core/connections');
 const sync = require('../core/sync');
 const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
+const i18n = require('../core/i18n');
+
+const { t } = i18n;
 
 const APP_NAME = 'fuxaw';
 // Dört parçalı sürüm (ör. 27.1.10.26); app.getVersion() sadece semver kısmını (27.1.10) verir. Bkz. scripts/set-version.js.
@@ -47,7 +50,7 @@ const cur = {
   liveDigest: null,  // FUXA'daki güncel halin özeti
   metaDirty: false,  // publish klasörü gibi proje dışı ayar değişti
   editorEdits: 0,    // editörde yapılıp henüz FUXA sunucusuna gitmemiş düzenleme sayısı
-  note: null,        // kullanıcıya gösterilecek kısa bilgi
+  note: null,        // kullanıcıya gösterilecek kısa bilgi: metni o anki dilde üreten fonksiyon (dil değişince yenilenir)
   importedFrom: null, // içe aktarılan dosya (ilk kayıtta önerilecek yer için)
   diskHash: null,    // .fxprj içeriğinin son okunduğu/yazıldığı andaki özeti
   ignoredHash: null, // birleştirilmesi ertelenen disk içeriği (aynısı için tekrar sorulmaz)
@@ -62,6 +65,16 @@ function userFile(name) {
 
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
+}
+
+// Uygulama ayarları (şimdilik sadece dil). Dil yoksa sistem dilinden: Türkçe değilse İngilizce.
+function appSettings() {
+  return readJson(userFile('settings.json'), {});
+}
+
+function initialLanguage() {
+  const saved = appSettings().language;
+  return i18n.LANGUAGES.includes(saved) ? saved : i18n.resolve(app.getLocale());
 }
 
 function recentList() {
@@ -87,11 +100,12 @@ function snapshot() {
       name: cur.doc.name,
       path: cur.path,
       dirty: isDirty(),
-      note: cur.note,
+      note: cur.note && cur.note(),
       publishDir: publisher.resolveDir(cur.doc, cur.path),
     },
     recent: recentList(),
     busy,
+    lang: i18n.getLanguage(),
   };
 }
 
@@ -106,7 +120,7 @@ function pushState() {
 }
 
 function message(type, text, detail) {
-  return dialog.showMessageBox(win, { type, title: APP_NAME, message: text, detail, buttons: ['Tamam'] });
+  return dialog.showMessageBox(win, { type, title: APP_NAME, message: text, detail, buttons: [t('common.ok')] });
 }
 
 function guard(fn) {
@@ -117,7 +131,7 @@ function guard(fn) {
     try {
       return await fn(...args);
     } catch (e) {
-      await message('error', 'İşlem tamamlanamadı', e.message);
+      await message('error', t('op.failed'), e.message);
       return undefined;
     } finally {
       busy = false;
@@ -129,8 +143,8 @@ function guard(fn) {
 function requireFuxa() {
   if (fuxaState.status !== 'ready') {
     throw new Error(fuxaState.status === 'error'
-      ? `Uygulama bileşenleri çalışmıyor: ${fuxaState.error}`
-      : 'Bileşenler henüz yüklenmedi, birkaç saniye sonra tekrar dene.');
+      ? t('engine.notRunning', { error: fuxaState.error })
+      : t('engine.notReady'));
   }
   return fuxaState.url;
 }
@@ -143,6 +157,7 @@ async function startFuxa() {
     packaged: app.isPackaged,
     userDir: userFile('fuxa'),
     logFile: logFile(),
+    language: i18n.getLanguage(),
   });
   try {
     const url = await fuxa.start();
@@ -164,7 +179,7 @@ async function startFuxa() {
     pushState();
   }
   await revealMain();
-  if (openError) await message('error', 'Proje açılamadı', openError.message);
+  if (openError) await message('error', t('open.failed'), openError.message);
 }
 
 function logFile() {
@@ -190,7 +205,7 @@ function createSplash() {
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
   splash.webContents.on('will-navigate', (e) => e.preventDefault());
-  splash.loadFile(path.join(__dirname, '..', 'renderer', 'splash.html'));
+  splash.loadFile(path.join(__dirname, '..', 'renderer', 'splash.html'), { hash: i18n.getLanguage() });
   splash.once('ready-to-show', () => {
     splashShownAt = Date.now();
     if (splash) splash.show();
@@ -213,8 +228,10 @@ async function revealMain() {
 }
 
 // FUXA editörünün kendi proje menüsü (New/Save/Open/Rename) uygulamanın Dosya menüsüyle çakışır: gizli.
+// Düğmenin title'ı editör diline göre çevrilir (tr: "Kaydet"); simgesinin aria-label'ı her dilde sabittir.
+const SAVE_TRIGGER = 'button:has(> mat-icon[aria-label="Save Project"])';
 const EDITOR_CSS = `
-button[title="Save Project"] { display: none !important; }
+${SAVE_TRIGGER} { display: none !important; }
 body.fxw-flush .cdk-overlay-container { opacity: 0 !important; }
 `;
 
@@ -286,7 +303,7 @@ async function flushEditor() {
   if (!wc.getURL().includes('/editor')) return;
   const js = `(async () => {
     window.__fxw && window.__fxw.commitDimensions && window.__fxw.commitDimensions();
-    const trigger = document.querySelector('button[title="Save Project"]');
+    const trigger = document.querySelector(${JSON.stringify(SAVE_TRIGGER)});
     if (!trigger) return 'no-trigger';
     document.body.classList.add('fxw-flush');
     try {
@@ -294,7 +311,7 @@ async function flushEditor() {
       for (let i = 0; i < 20; i++) {
         const items = [...document.querySelectorAll('.mat-mdc-menu-panel .mat-mdc-menu-item')];
         if (items.length) {
-          const save = items.find((b) => b.innerText.trim() === 'Save Project') || items[1];
+          const save = items[1]; // New, Save, Save As, Open, Rename (metin editör diline göre değişir)
           save.click();
           return 'saved';
         }
@@ -361,14 +378,14 @@ async function loadDoc(doc, filePath, note, hash = null) {
 }
 
 /** Kaydedilmemiş değişiklik varsa sor. true = devam edilebilir. */
-async function confirmDiscard(action) {
+async function confirmDiscard(questionKey) {
   if (!isDirty()) return true;
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',
     title: APP_NAME,
-    message: `"${cur.doc.name}" projesinde kaydedilmemiş değişiklikler var.`,
-    detail: `${action} önce kaydetmek ister misin?`,
-    buttons: ['Kaydet', 'Kaydetme', 'İptal'],
+    message: t('discard.message', { name: cur.doc.name }),
+    detail: t(questionKey),
+    buttons: [t('common.save'), t('common.dontSave'), t('common.cancel')],
     defaultId: 0,
     cancelId: 2,
     noLink: true,
@@ -380,19 +397,19 @@ async function confirmDiscard(action) {
 
 async function newProject() {
   requireFuxa();
-  if (!(await confirmDiscard('Yeni projeye geçmeden'))) return;
-  await loadDoc(fxprj.newDoc('Adsız'), null, 'Yeni proje. Kaydet ile .fxprj dosyası olarak kaydet.');
+  if (!(await confirmDiscard('discard.beforeNew'))) return;
+  await loadDoc(fxprj.newDoc(t('project.untitled')), null, () => t('note.newProject'));
 }
 
 async function openDialog() {
   requireFuxa();
-  if (!(await confirmDiscard('Başka proje açmadan'))) return;
+  if (!(await confirmDiscard('discard.beforeOpen'))) return;
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-    title: 'Proje aç',
+    title: t('open.title'),
     properties: ['openFile'],
     filters: [
-      { name: 'fuxaw projesi', extensions: ['fxprj'] },
-      { name: 'Proje JSON (içe aktar)', extensions: ['json'] },
+      { name: t('filter.fxprj'), extensions: ['fxprj'] },
+      { name: t('filter.json'), extensions: ['json'] },
     ],
   });
   if (canceled || !filePaths.length) return;
@@ -404,10 +421,10 @@ async function openPath(p, { skipConfirm = false } = {}) {
     pendingOpen = p;
     return;
   }
-  if (!skipConfirm && !(await confirmDiscard('Başka proje açmadan'))) return;
+  if (!skipConfirm && !(await confirmDiscard('discard.beforeOpen'))) return;
   const { doc, imported, hash } = fxprj.read(p);
   if (imported) {
-    await loadDoc(doc, null, `${path.basename(p)} içe aktarıldı. Kaydet ile proje klasörüne yaz (ekranlar, bağlantılar, script'ler ayrı dosyalarda).`);
+    await loadDoc(doc, null, () => t('note.imported', { file: path.basename(p) }));
     cur.importedFrom = p;
   } else {
     await loadDoc(doc, p, null, hash);
@@ -421,12 +438,14 @@ async function openPath(p, { skipConfirm = false } = {}) {
  */
 async function confirmOverwrite(target, { offerSaveAs = false } = {}) {
   if (!samePath(target, cur.path) || !externallyChanged()) return true;
-  const buttons = offerSaveAs ? ['Üzerine yaz', 'Farklı kaydet…', 'İptal'] : ['Üzerine yaz', 'İptal'];
+  const buttons = offerSaveAs
+    ? [t('overwrite.overwrite'), t('overwrite.saveAs'), t('common.cancel')]
+    : [t('overwrite.overwrite'), t('common.cancel')];
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',
     title: APP_NAME,
-    message: `"${path.basename(target)}" açıldıktan sonra diskte değişti.`,
-    detail: 'Üzerine yazarsan dışarıda yapılan değişiklikler (ör. git, Syncthing, başka bir düzenleyici) kaybolur.',
+    message: t('overwrite.message', { file: path.basename(target) }),
+    detail: t('overwrite.detail'),
     buttons,
     defaultId: buttons.length - 1,
     cancelId: buttons.length - 1,
@@ -446,19 +465,19 @@ async function saveProject(saveAs) {
     const name = fxprj.safeName(cur.doc.name);
     const base = cur.importedFrom ? path.dirname(cur.importedFrom) : app.getPath('documents');
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      title: saveAs ? 'Farklı kaydet' : 'Projeyi kaydet',
+      title: saveAs ? t('save.titleAs') : t('save.title'),
       defaultPath: target || path.join(base, name, name + fxprj.EXT),
-      filters: [{ name: 'fuxaw projesi', extensions: ['fxprj'] }],
+      filters: [{ name: t('filter.fxprj'), extensions: ['fxprj'] }],
     });
     if (canceled || !filePath) return false;
     target = filePath.toLowerCase().endsWith(fxprj.EXT) ? filePath : filePath + fxprj.EXT;
     if (samePath(target, cur.path) && !(await confirmOverwrite(target))) return false;
-    if (!cur.path || cur.doc.name === 'Adsız') cur.doc.name = path.basename(target, fxprj.EXT);
+    if (!cur.path || i18n.all('project.untitled').includes(cur.doc.name)) cur.doc.name = path.basename(target, fxprj.EXT);
     // Proje bir klasördür: seçilen klasörde başka proje varsa kendi alt klasörüne yazılır.
     if (!samePath(target, cur.path) && fxprj.folderConflict(target)) {
       const sub = path.join(path.dirname(target), path.basename(target, fxprj.EXT), path.basename(target));
       const why = fxprj.folderConflict(sub);
-      if (why) throw new Error(`${path.dirname(target)} klasörüne yazılamadı (${fxprj.folderConflict(target)}); ${path.dirname(sub)} de uygun değil (${why}). Boş bir klasör seç.`);
+      if (why) throw new Error(t('save.noFolder', { dir: path.dirname(target), why: fxprj.folderConflict(target), sub: path.dirname(sub), why2: why }));
       target = sub;
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -541,7 +560,7 @@ async function checkDisk() {
     read = fxprj.read(cur.path);
   } catch (e) {
     // Yazan taraf işini bitirmemiş olabilir; bir sonraki değişiklikte tekrar denenir.
-    cur.note = `Diskteki dosya okunamadı: ${e.message}`;
+    cur.note = () => t('note.diskUnreadable', { error: e.message });
     pushState();
     return;
   }
@@ -585,18 +604,18 @@ async function applyDiskChange({ doc, hash }) {
     const { response } = await dialog.showMessageBox(win, {
       type: 'warning',
       title: APP_NAME,
-      message: `"${path.basename(cur.path)}" diskte değişti; aynı öğeler burada da değiştirilmiş.`,
-      detail: `Çakışan: ${names.join(', ')}.\n`
-        + (others > 0 ? `Diskteki diğer ${others} değişiklik her durumda alınır.\n` : '')
-        + 'Çakışan öğelerde hangi hal kalsın?',
-      buttons: ['Diskteki hali al', 'Bendekini koru', 'Şimdilik hiçbirini alma'],
+      message: t('conflict.message', { file: path.basename(cur.path) }),
+      detail: `${t('conflict.items', { names: names.join(', ') })}\n`
+        + (others > 0 ? `${t('conflict.others', { count: others })}\n` : '')
+        + t('conflict.question'),
+      buttons: [t('conflict.theirs'), t('conflict.mine'), t('conflict.none')],
       defaultId: 1,
       cancelId: 2,
       noLink: true,
     });
     if (response === 2) {
       cur.ignoredHash = hash;
-      cur.note = 'Diskteki değişiklikler alınmadı; Kaydet dosyanın üzerine yazmadan önce soracak.';
+      cur.note = () => t('note.diskSkipped');
       return;
     }
     if (response === 0) {
@@ -620,10 +639,10 @@ async function applyDiskChange({ doc, hash }) {
     cur.liveBase = after;
     cur.savedDigest = cur.liveDigest;
   }
-  const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const got = sync.describe(r.theirs.filter((k) => tookTheirs || !r.conflicts.includes(k)), doc.project, mine);
+  const time = new Date().toLocaleTimeString(i18n.locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const got = r.theirs.filter((k) => tookTheirs || !r.conflicts.includes(k));
   cur.note = got.length
-    ? `Diskten alındı (${time}): ${got.join(', ')}${kept.length ? '. Kaydedilmemiş değişikliklerin korundu.' : ''}`
+    ? () => t('note.diskApplied', { time, items: sync.describe(got, doc.project, mine).join(', ') }) + (kept.length ? t('note.keptMine') : '')
     : cur.note;
   // Editör kendi proje kopyasını tutar ve Kaydet'te tümünü geri yazar: sunucu değiştiyse yeniden yüklenmeli.
   // Açık ekran editörde adıyla hatırlandığından aynı ekran açılır.
@@ -635,7 +654,7 @@ async function applyDiskChange({ doc, hash }) {
 async function reloadFromDisk({ confirm = true } = {}) {
   if (!cur.doc) return;
   if (!cur.path) {
-    await message('info', 'Proje henüz bir .fxprj dosyasına kaydedilmedi.');
+    await message('info', t('reload.notSaved'));
     return;
   }
   requireFuxa();
@@ -643,9 +662,9 @@ async function reloadFromDisk({ confirm = true } = {}) {
     const { response } = await dialog.showMessageBox(win, {
       type: 'warning',
       title: APP_NAME,
-      message: `"${cur.doc.name}" projesinde kaydedilmemiş değişiklikler var.`,
-      detail: 'Diskten yeniden yüklersen bu değişiklikler kaybolur.',
-      buttons: ['Diskten yeniden yükle', 'İptal'],
+      message: t('discard.message', { name: cur.doc.name }),
+      detail: t('reload.detail'),
+      buttons: [t('menu.reload'), t('common.cancel')],
       defaultId: 1,
       cancelId: 1,
       noLink: true,
@@ -654,7 +673,7 @@ async function reloadFromDisk({ confirm = true } = {}) {
   }
   const p = cur.path;
   const { doc, hash } = fxprj.read(p);
-  await loadDoc(doc, p, 'Proje diskten yeniden yüklendi.', hash);
+  await loadDoc(doc, p, () => t('note.reloaded'), hash);
 }
 
 async function analyze() {
@@ -679,7 +698,7 @@ async function addTag(spec) {
   await flushEditor();
   const prj = await api.getProject(url);
   const device = (prj.devices || {})[spec.deviceId];
-  if (!device) return { errors: ['Cihaz bulunamadı; listeyi yenile.'] };
+  if (!device) return { errors: [t('tag.deviceMissing')] };
   const res = buildTag(device, spec);
   if (res.errors) return res;
   device.tags = { ...(device.tags || {}), [res.tag.id]: res.tag };
@@ -696,12 +715,12 @@ async function deleteTag(spec) {
   const plan = prepareTagRemoval(project, spec);
   if (plan.errors) return plan;
   const usage = plan.uses.length
-    ? `Tag kullanılıyor. Silersen bu referanslar bozulur:\n${plan.uses.map(u => `${u.where} — ${u.how}`).join('\n')}\n\n`
+    ? `${t('tagDelete.uses', { uses: plan.uses.map(u => `${u.where} — ${u.how}`).join('\n') })}\n\n`
     : '';
   const { response } = await dialog.showMessageBox(win, {
-    type: 'warning', title: APP_NAME, message: `"${plan.tag.name}" tag'i silinsin mi?`,
-    detail: `${plan.device.name}\n\n${usage}Değişikliği dosyaya yazmak için Kaydet gerekir.`,
-    buttons: ['İptal', 'Sil'], defaultId: 0, cancelId: 0, noLink: true,
+    type: 'warning', title: APP_NAME, message: t('tagDelete.message', { name: plan.tag.name }),
+    detail: `${plan.device.name}\n\n${usage}${t('tagDelete.saveNeeded')}`,
+    buttons: [t('common.cancel'), t('common.delete')], defaultId: 0, cancelId: 0, noLink: true,
   });
   if (response !== 1) return { canceled: true };
   await api.projectData(url, 'set-device', plan.device);
@@ -740,9 +759,9 @@ async function publishPrepare() {
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
       title: APP_NAME,
-      message: 'Publish kaydedilmiş projeyi yazar.',
-      detail: 'Kaydedilmemiş değişiklikler var. Önce kaydedilsin mi?',
-      buttons: ['Kaydet ve devam et', 'İptal'],
+      message: t('publish.savedOnly'),
+      detail: t('publish.unsavedQuestion'),
+      buttons: [t('publish.saveContinue'), t('common.cancel')],
       defaultId: 0,
       cancelId: 1,
       noLink: true,
@@ -755,7 +774,7 @@ async function publishPrepare() {
 async function publishChooseDir() {
   if (!cur.doc || !cur.path) return null;
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-    title: 'Publish klasörü',
+    title: t('publish.dirTitle'),
     defaultPath: publisher.resolveDir(cur.doc, cur.path),
     properties: ['openDirectory', 'createDirectory'],
   });
@@ -763,7 +782,7 @@ async function publishChooseDir() {
   const rel = path.relative(path.dirname(cur.path), filePaths[0]);
   const dir = rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.split(path.sep).join('/') : filePaths[0];
   if (externallyChanged()) {
-    throw new Error('Proje dosyası diskte değişti. Önce Dosya → Diskten yeniden yükle ya da Kaydet ile durumu netleştir.');
+    throw new Error(t('publish.diskChanged'));
   }
   cur.doc.publish = { ...(cur.doc.publish || {}), dir };
   // Klasör seçimi .fxprj'e yazılır; publish kaydedilmiş hali yazdığından burada hemen kaydet.
@@ -773,7 +792,7 @@ async function publishChooseDir() {
 
 async function publishRun() {
   if (!cur.doc || !cur.path) return null;
-  if (isDirty()) throw new Error('Kaydedilmemiş değişiklik var; önce kaydet.');
+  if (isDirty()) throw new Error(t('publish.unsaved'));
   return publisher.publish(fxprj.read(cur.path).doc, cur.path);
 }
 
@@ -797,8 +816,28 @@ async function showEditorPage(page) {
         lastTagDevice = (devices.find(d => !isInternal(d.type)) || devices[0])?.name || null;
       }
     }
-    await wc.executeJavaScript(`(${openDevicePage.toString()})(${page === 'tags'}, ${JSON.stringify(lastTagDevice)})`);
+    await wc.executeJavaScript(`(${openDevicePage.toString()})(${page === 'tags'}, ${JSON.stringify(lastTagDevice)}, ${JSON.stringify(t('editor.devicePageFailed'))})`);
   }
+}
+
+/** Ayarlar → Dil: uygulamanın ve gömülü editörün dili birlikte değişir. */
+async function changeLanguage(lang) {
+  if (lang === i18n.getLanguage()) return;
+  i18n.setLanguage(lang);
+  fs.writeFileSync(userFile('settings.json'), JSON.stringify({ ...appSettings(), language: lang }, null, 2));
+  buildMenu();
+  pushState();
+  if (fuxa) fuxa.language = lang; // bileşenler yeniden başlatılırsa settings.js'e yazılır
+  if (fuxaState.status !== 'ready') return;
+  await flushEditor(); // editör yeniden yüklenecek: bekleyen çizimler kaybolmasın
+  try {
+    await api.setLanguage(fuxaState.url, lang);
+  } catch (e) {
+    await message('warning', t('engine.languageFailed'), e.message);
+    return;
+  }
+  // Editör dili açılışta /api/settings'ten okur: yeniden yüklenmeli.
+  if (editorView && editorView.webContents.getURL().startsWith(fuxaState.url)) editorView.webContents.reload();
 }
 
 function openRuntime() {
@@ -819,70 +858,77 @@ function send(cmd) {
 function buildMenu() {
   const recent = recentList();
   const run = (fn) => () => guard(fn)();
+  const lang = i18n.getLanguage();
   const template = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
     {
-      label: 'Dosya',
+      label: t('menu.file'),
       submenu: [
-        { label: 'Yeni Proje', accelerator: 'CmdOrCtrl+N', click: run(newProject) },
-        { label: 'Proje Aç…', accelerator: 'CmdOrCtrl+O', click: run(openDialog) },
+        { label: t('menu.new'), accelerator: 'CmdOrCtrl+N', click: run(newProject) },
+        { label: t('menu.open'), accelerator: 'CmdOrCtrl+O', click: run(openDialog) },
         {
-          label: 'Son Projeler',
+          label: t('menu.recent'),
           submenu: recent.length
             ? recent.map((p) => ({ label: p, click: run(() => openPath(p)) }))
-            : [{ label: '(boş)', enabled: false }],
+            : [{ label: t('menu.empty'), enabled: false }],
         },
         { type: 'separator' },
-        { label: 'Kaydet', accelerator: 'CmdOrCtrl+S', click: run(() => saveProject(false)) },
-        { label: 'Farklı Kaydet…', accelerator: 'CmdOrCtrl+Shift+S', click: run(() => saveProject(true)) },
-        { label: 'Diskten yeniden yükle', click: run(() => reloadFromDisk()) },
+        { label: t('menu.save'), accelerator: 'CmdOrCtrl+S', click: run(() => saveProject(false)) },
+        { label: t('menu.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: run(() => saveProject(true)) },
+        { label: t('menu.reload'), click: run(() => reloadFromDisk()) },
         { type: 'separator' },
-        { label: 'Publish (klasöre)…', accelerator: 'CmdOrCtrl+Shift+P', click: send('publish') },
+        { label: t('menu.publish'), accelerator: 'CmdOrCtrl+Shift+P', click: send('publish') },
         { type: 'separator' },
-        process.platform === 'darwin' ? { role: 'close', label: 'Kapat' } : { role: 'quit', label: 'Çıkış' },
+        process.platform === 'darwin' ? { role: 'close', label: t('menu.close') } : { role: 'quit', label: t('menu.quit') },
       ],
     },
     {
-      label: 'Proje',
+      label: t('menu.project'),
       submenu: [
-        { label: 'Editör', accelerator: 'CmdOrCtrl+1', click: run(() => showEditorPage('editor')) },
-        { label: 'Taglar', accelerator: 'CmdOrCtrl+2', click: run(() => showEditorPage('tags')) },
-        { label: 'Kontrol (lint)', accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
-        { label: 'Scriptler', accelerator: 'CmdOrCtrl+6', click: run(() => showEditorPage('scripts')) },
+        { label: t('menu.editor'), accelerator: 'CmdOrCtrl+1', click: run(() => showEditorPage('editor')) },
+        { label: t('menu.tags'), accelerator: 'CmdOrCtrl+2', click: run(() => showEditorPage('tags')) },
+        { label: t('menu.lint'), accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
+        { label: t('menu.scripts'), accelerator: 'CmdOrCtrl+6', click: run(() => showEditorPage('scripts')) },
         { type: 'separator' },
-        { label: 'Runtime\'ı aç (önizleme)', accelerator: 'F5', click: openRuntime },
-        { label: 'Editörü yenile', click: () => cur.doc && loadEditor() },
+        { label: t('menu.runtime'), accelerator: 'F5', click: openRuntime },
+        { label: t('menu.reloadEditor'), click: () => cur.doc && loadEditor() },
       ],
     },
     {
-      label: 'Ayarlar',
+      label: t('menu.settings'),
       submenu: [
-        { label: 'Bağlantılar ve tag yönetimi…', accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
-        { label: 'Sunucu eklentileri…', accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
-      ],
-    },
-    {
-      label: 'Görünüm',
-      submenu: [
-        { role: 'zoomIn', label: 'Yakınlaştır' },
-        { role: 'zoomOut', label: 'Uzaklaştır' },
-        { role: 'resetZoom', label: 'Gerçek boyut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: 'Tam ekran' },
-        { label: 'Geliştirici araçları (editör)', accelerator: 'F12', click: () => editorView && editorView.webContents.toggleDevTools() },
-        { label: 'Geliştirici araçları (uygulama)', accelerator: 'CmdOrCtrl+Shift+I', click: () => win && win.webContents.toggleDevTools() },
-      ],
-    },
-    {
-      label: 'Yardım',
-      submenu: [
-        { label: 'Günlük dosyasını aç', click: () => shell.openPath(logFile()) },
-        { label: 'Uygulama veri klasörü', click: () => shell.openPath(app.getPath('userData')) },
+        { label: t('menu.connections'), accelerator: 'CmdOrCtrl+4', click: run(() => showEditorPage('device')) },
+        { label: t('menu.plugins'), accelerator: 'CmdOrCtrl+5', click: run(() => showEditorPage('plugins')) },
         { type: 'separator' },
         {
-          label: `${APP_NAME} hakkında`,
-          click: () => message('info', `${APP_NAME} ${APP_VERSION}`,
-            'HMI proje tasarımı için masaüstü uygulaması.'),
+          label: t('menu.language'),
+          submenu: i18n.LANGUAGES.map((l) => ({
+            label: i18n.NATIVE_NAMES[l], type: 'radio', checked: l === lang, click: run(() => changeLanguage(l)),
+          })),
+        },
+      ],
+    },
+    {
+      label: t('menu.view'),
+      submenu: [
+        { role: 'zoomIn', label: t('menu.zoomIn') },
+        { role: 'zoomOut', label: t('menu.zoomOut') },
+        { role: 'resetZoom', label: t('menu.resetZoom') },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: t('menu.fullscreen') },
+        { label: t('menu.devEditor'), accelerator: 'F12', click: () => editorView && editorView.webContents.toggleDevTools() },
+        { label: t('menu.devApp'), accelerator: 'CmdOrCtrl+Shift+I', click: () => win && win.webContents.toggleDevTools() },
+      ],
+    },
+    {
+      label: t('menu.help'),
+      submenu: [
+        { label: t('menu.log'), click: () => shell.openPath(logFile()) },
+        { label: t('menu.dataDir'), click: () => shell.openPath(app.getPath('userData')) },
+        { type: 'separator' },
+        {
+          label: t('menu.about', { app: APP_NAME }),
+          click: () => message('info', `${APP_NAME} ${APP_VERSION}`, t('about.detail')),
         },
       ],
     },
@@ -964,7 +1010,7 @@ function createWindow() {
     if (closing || !isDirty()) return;
     e.preventDefault();
     if (busy) return;
-    if (await confirmDiscard('Çıkmadan')) {
+    if (await confirmDiscard('discard.beforeQuit')) {
       closing = true;
       win.close();
     }
@@ -990,6 +1036,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     app.setName(APP_NAME);
+    i18n.setLanguage(initialLanguage());
     pendingOpen = pendingOpen || fileArg(process.argv);
     registerIpc();
     buildMenu();

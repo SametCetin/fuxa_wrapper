@@ -26,6 +26,7 @@
 | Proje → Runtime'ı aç (F5) | Projenin çalışan halini ayrı pencerede açar |
 | Ayarlar → Bağlantılar ve tag yönetimi… (Ctrl+4) | Tam bağlantı/tag yönetimi: düzenleme, canlı değerler, bağlantı içe/dışa aktarma |
 | Ayarlar → Sunucu eklentileri… (Ctrl+5) | Sunucu eklentileri; uygulamayla gelen `@fuxaw/ads-plugin` burada görünür; Ctrl+1 çizim editörüne döner |
+| Ayarlar → Dil | Türkçe / English: uygulamanın ve gömülü FUXA editörünün dilini birlikte değiştirir. İlk açılışta sistem dili belirler (sistem Türkçeyse Türkçe, değilse İngilizce). FUXA'nın kendi Türkçe çevirisi eksik olduğu için editörde bazı metinler İngilizce kalır |
 
 Açılışta "Bileşenler yükleniyor…" yazan küçük bir açılış penceresi görünür; ana pencere hazır olunca açılır. Komutlar Dosya/Proje/Ayarlar menülerindedir (pencerede ayrıca düğme yok).
 

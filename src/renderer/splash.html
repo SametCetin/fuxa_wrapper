@@ -7,11 +7,13 @@
   <link rel="stylesheet" href="splash.css">
 </head>
 <body>
+  <!-- Betiksiz: dil adresin sonundaki #tr / #en ile seçilir (main.js → createSplash), CSS :target ile gösterilir. -->
+  <span id="en" hidden></span>
   <main>
     <h1>fuxaw</h1>
-    <p>HMI proje tasarımı</p>
-    <div class="bar" role="progressbar" aria-label="Bileşenler yükleniyor"><span></span></div>
-    <p class="status">Bileşenler yükleniyor…</p>
+    <p><span class="tr">HMI proje tasarımı</span><span class="en">HMI project design</span></p>
+    <div class="bar" role="progressbar" aria-label="Bileşenler yükleniyor / Loading components"><span></span></div>
+    <p class="status"><span class="tr">Bileşenler yükleniyor…</span><span class="en">Loading components…</span></p>
   </main>
 </body>
 </html>

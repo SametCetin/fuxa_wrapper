@@ -1,8 +1,26 @@
 'use strict';
 
+// Labels added to the engine's own ADS form follow the engine's editor language
+// (Turkish for "tr", English otherwise).
+const TEXT = {
+    tr: {
+        original: 'ADSclient (orijinal)',
+        method: 'Bağlantı yöntemi · fuxaw ADS',
+        native: 'Yerel TwinCAT (Windows)',
+        hint: 'Hedef: AMS Net ID:port (ör. 1.2.3.4.5.6:851). Yerel yöntemde TwinCAT rotaları kullanılır.',
+    },
+    en: {
+        original: 'ADSclient (original)',
+        method: 'Connection method · fuxaw ADS',
+        native: 'Local TwinCAT (Windows)',
+        hint: 'Target: AMS Net ID:port (e.g. 1.2.3.4.5.6:851). The local method uses the TwinCAT routes.',
+    },
+};
+
 // Only the served bundle is adapted. These anchors belong to engine 1.3.4;
 // refuse an unfamiliar build rather than silently present the wrong ADS form.
-function patchEditor(source) {
+function patchEditor(source, language = 'en') {
+    const text = language === 'tr' ? TEXT.tr : TEXT.en;
     const replace = (before, after) => {
         if (source.split(before).length !== 2) throw new Error('ADS bağlantı arayüzü değişmiş; uyarlama doğrulanmalı.');
         source = source.replace(before, after);
@@ -12,7 +30,7 @@ function patchEditor(source) {
     replace('t===an.bq.ADSclient||', 't===an.bq.ADSclient||t===an.bq.FuxawADS||');
     replace('this.deviceSelected.type!==an.bq.ADSclient?', '(this.deviceSelected.type!==an.bq.ADSclient&&this.deviceSelected.type!==an.bq.FuxawADS)?');
     replace('e.SpI(" ",t.value," ")}}function p_e',
-        'e.SpI(" ",t.key==="FuxawADS"?"ADS (fuxaw)":t.key==="ADSclient"?"ADSclient (orijinal)":t.value," ")}}function p_e');
+        'e.SpI(" ",t.key==="FuxawADS"?"ADS (fuxaw)":t.key==="ADSclient"?' + JSON.stringify(text.original) + ':t.value," ")}}function p_e');
     replace('e.JRh(e.bMT(15,15,"plugin.group-"+t.group))',
         'e.JRh(t.bundled?t.description:e.bMT(15,15,"plugin.group-"+t.group))');
     // Keep the existing TCP behavior of saved projects lacking adsTransport.
@@ -29,7 +47,7 @@ function patchEditor(source) {
         if (template.split(before).length !== 2) throw new Error('ADS bağlantı alanları değişmiş.');
         template = template.replace(before, after);
     };
-    replaceTemplate('e.k0s()()()}if(2&r)', 'e.k0s()(),e.j41(16,"div",60)(17,"span"),e.EFF(18,"Bağlantı yöntemi · fuxaw ADS"),e.k0s(),e.j41(19,"mat-select",25),e.bIt("valueChange",function(i){e.eBV(t);const o=e.XpG(3);return o.data.device.property.adsTransport=i,e.Njj(i)}),e.j41(20,"mat-option",27),e.EFF(21,"Yerel TwinCAT (Windows)"),e.k0s(),e.j41(22,"mat-option",27),e.EFF(23,"ADS-TCP"),e.k0s()()(),e.j41(24,"p"),e.EFF(25,"Hedef: AMS Net ID:port (ör. 1.2.3.4.5.6:851). Yerel yöntemde TwinCAT rotaları kullanılır."),e.k0s()()}if(2&r)');
+    replaceTemplate('e.k0s()()()}if(2&r)', 'e.k0s()(),e.j41(16,"div",60)(17,"span"),e.EFF(18,' + JSON.stringify(text.method) + '),e.k0s(),e.j41(19,"mat-select",25),e.bIt("valueChange",function(i){e.eBV(t);const o=e.XpG(3);return o.data.device.property.adsTransport=i,e.Njj(i)}),e.j41(20,"mat-option",27),e.EFF(21,' + JSON.stringify(text.native) + '),e.k0s(),e.j41(22,"mat-option",27),e.EFF(23,"ADS-TCP"),e.k0s()()(),e.j41(24,"p"),e.EFF(25,' + JSON.stringify(text.hint) + '),e.k0s()()}if(2&r)');
     replaceTemplate('e.R50("ngModel",t.data.device.property.address),e.R7$(3)',
         'e.R50("ngModel",t.data.device.property.address),e.R7$(),e.xc7("display",t.data.device.property.adsTransport==="native"?"none":null),e.R7$(2)');
     replaceTemplate('e.R50("ngModel",t.data.device.property.local),e.R7$(3)',

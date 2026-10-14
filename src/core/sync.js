@@ -11,6 +11,7 @@
 // tüm proje gönderilir.
 
 const model = require('./model');
+const { t } = require('./i18n');
 
 // tür -> [kaydet komutu, sil komutu] (FUXA 1.3.4 runtime/project ProjectDataCmdType)
 const ITEM_CMDS = {
@@ -170,10 +171,10 @@ function planOps(from, to) {
 }
 
 /** Kullanıcıya gösterilecek kısa öğe adları: "ekran Main", "cihaz PLC1". */
-const KIND_TR = {
-  device: 'bağlantı', view: 'ekran', script: 'script', text: 'metin', alarm: 'alarm', notification: 'bildirim',
-  report: 'rapor', mapsLocation: 'harita konumu', arMarker: 'AR işareti', layout: 'yerleşim', charts: 'grafikler',
-  graphs: 'çizelgeler', languages: 'diller', clientAccess: 'istemci erişimi', [REST]: 'proje ayarları',
+const kindName = (kind) => {
+  const key = kind === REST ? 'kind.rest' : `kind.${kind}`;
+  const s = t(key);
+  return s === key ? kind : s;
 };
 
 function describe(keys, ...projects) {
@@ -181,7 +182,7 @@ function describe(keys, ...projects) {
     const kind = model.kindOf(key);
     const obj = projects.map((p) => p && itemOf(p, key)).find(Boolean);
     const name = key.includes(':') ? ((obj && obj.name) || key.slice(kind.length + 1)) : '';
-    return `${KIND_TR[kind] || kind}${name ? ` "${name}"` : ''}`;
+    return `${kindName(kind)}${name ? ` "${name}"` : ''}`;
   });
 }
 

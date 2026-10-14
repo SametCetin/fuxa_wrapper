@@ -10,6 +10,7 @@ const net = require('node:net');
 const path = require('node:path');
 const { spawn, execFileSync } = require('node:child_process');
 const { installEditorTagClear } = require('./editorTagClear');
+const { t } = require('../core/i18n');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const IS_WIN = process.platform === 'win32';
@@ -28,8 +29,8 @@ function findFuxaMain(packaged) {
   const main = path.join(base, '@frangoteam', 'fuxa', 'main.js');
   if (!fs.existsSync(main)) {
     throw new FuxaError(packaged
-      ? `Editör bileşeni uygulama paketinde yok: ${main}`
-      : `Editör bileşeni kurulu değil (${main}). Repo kökünde: npm run setup:fuxa`);
+      ? t('engine.missingPackaged', { path: main })
+      : t('engine.missingDev', { path: main }));
   }
   return main;
 }
@@ -46,7 +47,7 @@ function findNode(packaged) {
   if (packaged) {
     const p = path.join(resourcesDir(true), 'node', NODE_EXE);
     if (fs.existsSync(p)) return p;
-    throw new FuxaError(`Node.js uygulama paketinde yok: ${p}`);
+    throw new FuxaError(t('engine.nodeMissingPackaged', { path: p }));
   }
   const vendored = path.join(ROOT, 'vendor', 'node', NODE_EXE);
   if (fs.existsSync(vendored)) return vendored;
@@ -56,7 +57,7 @@ function findNode(packaged) {
     const pf = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe');
     if (fs.existsSync(pf)) return pf;
   }
-  throw new FuxaError('Node.js bulunamadı. Geliştirme için Node.js kur veya: npm run fetch:node');
+  throw new FuxaError(t('engine.nodeNotFound'));
 }
 
 function freePort() {
@@ -71,8 +72,11 @@ function freePort() {
   });
 }
 
-/** FUXA'nın ayar dosyası: varsayılanlar + sadece 127.0.0.1'de dinle, ilk açılış rehberini gösterme. */
-function writeSettings(userDir, fuxaMain) {
+/**
+ * FUXA'nın ayar dosyası: varsayılanlar + sadece 127.0.0.1'de dinle, ilk açılış rehberini gösterme, editör dili.
+ * FUXA'nın kendi ayar penceresinden kaydedilen mysettings.json dili ezer; onun dili de uygulamanınkine eşitlenir.
+ */
+function writeSettings(userDir, fuxaMain, language) {
   const appdata = path.join(userDir, '_appdata');
   fs.mkdirSync(appdata, { recursive: true });
   const defaults = path.join(path.dirname(fuxaMain), 'settings.default.js');
@@ -82,10 +86,16 @@ function writeSettings(userDir, fuxaMain) {
     "  uiHost: '127.0.0.1',",
     '  hideEditorOnboarding: true,',
     "  logs: { retention: 'none' },",
+    `  language: ${JSON.stringify(language)},`,
     '});',
     '',
   ].join('\n');
   fs.writeFileSync(path.join(appdata, 'settings.js'), text, 'utf8');
+  const mine = path.join(appdata, 'mysettings.json');
+  try {
+    const obj = JSON.parse(fs.readFileSync(mine, 'utf8'));
+    if (obj.language !== language) fs.writeFileSync(mine, JSON.stringify({ ...obj, language }, null, 4));
+  } catch { /* yok ya da okunamıyor: settings.js geçerli */ }
 }
 
 /**
@@ -114,8 +124,9 @@ function writeBoot(userDir, pluginPath) {
 }
 
 class FuxaServer {
-  constructor({ packaged, userDir, logFile }) {
+  constructor({ packaged, userDir, logFile, language = 'en' }) {
     this.packaged = packaged;
+    this.language = language;
     this.userDir = userDir;
     this.logFile = logFile;
     this.proc = null;
@@ -132,7 +143,7 @@ class FuxaServer {
     const main = findFuxaMain(this.packaged);
     fs.mkdirSync(this.userDir, { recursive: true });
     fs.mkdirSync(path.dirname(this.logFile), { recursive: true });
-    writeSettings(this.userDir, main);
+    writeSettings(this.userDir, main, this.language);
     const pluginPath = this.packaged
       ? path.join(resourcesDir(true), 'plugins', 'native-ads')
       : path.join(ROOT, 'integrations', 'native-ads');
@@ -155,7 +166,7 @@ class FuxaServer {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (this.exited !== null) {
-        throw new FuxaError(`Editör bileşeni başlarken kapandı (kod ${this.exited}). Günlük: ${this.logFile}`);
+        throw new FuxaError(t('engine.exited', { code: this.exited, log: this.logFile }));
       }
       try {
         const r = await fetch(`${this.url}/api/settings`, { signal: AbortSignal.timeout(2000) });
@@ -164,7 +175,7 @@ class FuxaServer {
       await new Promise((res) => setTimeout(res, 300));
     }
     this.stop();
-    throw new FuxaError(`Editör bileşeni ${timeoutMs / 1000} sn içinde hazır olmadı. Günlük: ${this.logFile}`);
+    throw new FuxaError(t('engine.timeout', { seconds: timeoutMs / 1000, log: this.logFile }));
   }
 
   stop() {

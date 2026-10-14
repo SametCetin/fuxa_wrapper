@@ -51,3 +51,8 @@ p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
   .bar span { animation-duration: 3s; }
 }
 .status { font-size: 12px; }
+
+/* Dil: varsayılan Türkçe; adres #en ile açılırsa İngilizce. */
+.en { display: none; }
+body:has(#en:target) .tr { display: none; }
+body:has(#en:target) .en { display: inline; }

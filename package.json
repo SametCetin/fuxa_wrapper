@@ -1,8 +1,8 @@
 {
   "name": "fuxaw",
   "productName": "fuxaw",
-  "version": "27.1.10",
-  "fullVersion": "27.1.10.26",
+  "version": "26.1.10",
+  "fullVersion": "26.1.10.14",
   "description": "FUXA projeleri için masaüstü uygulaması (.fxprj)",
   "main": "src/main/main.js",
   "author": "Samet Çetin",
@@ -29,7 +29,7 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "buildVersion": "27.1.10.26",
+    "buildVersion": "26.1.10.14",
     "appId": "org.sct.fuxaw",
     "productName": "fuxaw",
     "electronDist": "node_modules/electron/dist",

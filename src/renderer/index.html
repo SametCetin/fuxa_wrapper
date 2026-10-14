@@ -7,13 +7,14 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
+  <!-- Metinler data-i18n* öznitelikleriyle ../core/i18n.js'ten basılır (app.js → applyStaticText). -->
   <nav class="tabs">
     <div id="tabs" class="tab-buttons">
-      <button data-tab="editor" class="active">Editör</button>
-      <button data-tab="tags">Taglar</button>
-      <button data-tab="connections">Bağlantılar</button>
-      <button data-tab="lint">Kontrol <span id="lintBadge" class="badge" hidden></span></button>
-      <button data-tab="scripts">Scriptler</button>
+      <button data-tab="editor" class="active" data-i18n="ui.tabEditor"></button>
+      <button data-tab="tags" data-i18n="ui.tabTags"></button>
+      <button data-tab="connections" data-i18n="ui.tabConnections"></button>
+      <button data-tab="lint"><span data-i18n="ui.tabLint"></span> <span id="lintBadge" class="badge" hidden></span></button>
+      <button data-tab="scripts" data-i18n="ui.tabScripts"></button>
     </div>
     <div class="spacer"></div>
     <div id="projectInfo" class="project-info"></div>
@@ -22,53 +23,53 @@
 
   <main id="content">
     <section id="pane-editor" class="pane active">
-      <div id="editorHost"><div class="placeholder" id="editorPlaceholder">Editör yükleniyor…</div></div>
+      <div id="editorHost"><div class="placeholder" id="editorPlaceholder"></div></div>
     </section>
 
     <section id="pane-tags" class="pane">
-      <div id="tagsHost"><div class="placeholder">Taglar yükleniyor…</div></div>
+      <div id="tagsHost"><div class="placeholder" data-i18n="ui.loadingTags"></div></div>
     </section>
 
     <section id="pane-connections" class="pane">
-      <div class="pane-bar"><b>Bağlantılar</b></div>
-      <div id="connectionsHost"><div class="placeholder">Bağlantı ve tag yönetimi yükleniyor…</div></div>
+      <div class="pane-bar"><b data-i18n="ui.connections"></b></div>
+      <div id="connectionsHost"><div class="placeholder" data-i18n="ui.loadingConnections"></div></div>
     </section>
 
     <section id="pane-scripts" class="pane">
-      <div id="scriptsHost"><div class="placeholder">Scriptler yükleniyor…</div></div>
+      <div id="scriptsHost"><div class="placeholder" data-i18n="ui.loadingScripts"></div></div>
     </section>
 
     <section id="pane-lint" class="pane">
       <div class="pane-bar control-tabs">
-        <button data-control="lint" class="primary" aria-pressed="true">Proje kontrolü</button>
-        <button data-control="tags" aria-pressed="false">Tag kullanımları</button>
+        <button data-control="lint" class="primary" aria-pressed="true" data-i18n="ui.controlLint"></button>
+        <button data-control="tags" aria-pressed="false" data-i18n="ui.controlTags"></button>
       </div>
       <div id="control-lint" class="control-panel">
       <div class="pane-bar">
-        <span class="muted">Bilinen editör tuzakları ve kırık tag/script referansları. HATA varsa publish yapılmaz.</span>
+        <span class="muted" data-i18n="ui.lintIntro"></span>
         <div class="spacer"></div>
-        <button id="btnLintRefresh">Yenile</button>
+        <button id="btnLintRefresh" data-i18n="common.refresh"></button>
       </div>
       <div class="table-wrap">
         <table class="grid">
-          <thead><tr><th>Seviye</th><th>Yer</th><th>Mesaj</th></tr></thead>
+          <thead><tr><th data-i18n="ui.colLevel"></th><th data-i18n="ui.colWhere"></th><th data-i18n="ui.colMessage"></th></tr></thead>
           <tbody id="lintBody"></tbody>
         </table>
       </div>
       </div>
     <div id="control-tags" class="control-panel" hidden>
       <div class="pane-bar">
-        <input id="tagFilter" type="search" placeholder="Ara: ad, adres, cihaz…">
-        <select id="tagDevice"><option value="">Tüm cihazlar</option></select>
-        <label class="check"><input type="checkbox" id="tagUnused"> Kullanılmayanlar</label>
+        <input id="tagFilter" type="search" data-i18n-placeholder="ui.tagSearch">
+        <select id="tagDevice"><option value="" data-i18n="ui.allDevices"></option></select>
+        <label class="check"><input type="checkbox" id="tagUnused"> <span data-i18n="ui.unused"></span></label>
         <div class="spacer"></div>
         <span id="tagCount" class="muted"></span>
-        <button id="btnTagCopy" title="Görünen satırları Excel'e yapıştırılabilir biçimde kopyala">Kopyala</button>
-        <button id="btnTagRefresh">Yenile</button>
+        <button id="btnTagCopy" data-i18n="ui.copy" data-i18n-title="ui.copyTitle"></button>
+        <button id="btnTagRefresh" data-i18n="common.refresh"></button>
       </div>
       <div class="table-wrap">
         <table class="grid">
-          <thead><tr><th>Ad</th><th>Tip</th><th>Adres</th><th>Cihaz</th><th class="num">Kullanım</th></tr></thead>
+          <thead><tr><th data-i18n="ui.colName"></th><th data-i18n="ui.colType"></th><th data-i18n="ui.colAddress"></th><th data-i18n="ui.colDevice"></th><th class="num" data-i18n="ui.colUses"></th></tr></thead>
           <tbody id="tagBody"></tbody>
         </table>
       </div>
@@ -80,15 +81,15 @@
     <section id="welcome" class="welcome">
       <div class="welcome-box">
         <h1>fuxaw</h1>
-        <p class="muted">HMI projeleri: tasarla, kaydet (.fxprj), hedef makine için klasöre publish et.</p>
+        <p class="muted" data-i18n="ui.welcome"></p>
         <div class="welcome-actions">
-          <button id="wNew" class="primary big">Yeni Proje</button>
-          <button id="wOpen" class="big">Proje Aç…</button>
+          <button id="wNew" class="primary big" data-i18n="menu.new"></button>
+          <button id="wOpen" class="big" data-i18n="menu.open"></button>
         </div>
-        <h2>Son projeler</h2>
+        <h2 data-i18n="ui.recent"></h2>
         <ul id="recentList" class="recent"></ul>
         <p id="welcomeStatus" class="muted small"></p>
-        <button id="btnRetry" hidden>Bileşenleri yeniden başlat</button>
+        <button id="btnRetry" hidden data-i18n="ui.retry"></button>
       </div>
     </section>
   </main>
@@ -107,6 +108,7 @@
     </div>
   </div>
 
+  <script src="../core/i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

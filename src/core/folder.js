@@ -15,6 +15,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./model');
+const { t } = require('./i18n');
 
 // tür -> proje içindeki yeri, dizi mi, ayrı dosyaya alınan gövde alanı
 const KINDS = {
@@ -124,12 +125,12 @@ function implode(rest, parts, files) {
       try {
         obj = JSON.parse(files[f].replace(/^﻿/, ''));
       } catch (e) {
-        throw new FolderError(`${f} geçerli JSON değil: ${e.message}`);
+        throw new FolderError(t('file.invalidJson', { file: f, error: e.message }));
       }
-      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new FolderError(`${f}: nesne olmalı`);
-      if (obj.id === undefined || obj.id === null || obj.id === '') throw new FolderError(`${f}: "id" alanı yok`);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new FolderError(t('file.notObject', { file: f }));
+      if (obj.id === undefined || obj.id === null || obj.id === '') throw new FolderError(t('file.noId', { file: f }));
       const id = String(obj.id);
-      if (byId.has(id)) throw new FolderError(`${f} ve ${byId.get(id).file} aynı id'yi (${id}) kullanıyor`);
+      if (byId.has(id)) throw new FolderError(t('file.duplicateId', { file: f, other: byId.get(id).file, id }));
       if (k.body) {
         const bodyFile = f.slice(0, -5) + k.ext;
         const body = Object.keys(files).find((x) => x.toLowerCase() === bodyFile.toLowerCase());
