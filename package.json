@@ -1,7 +1,7 @@
 {
   "name": "fuxaw",
   "productName": "fuxaw",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "FUXA projeleri için masaüstü uygulaması (.fxprj)",
   "main": "src/main/main.js",
   "author": "Samet Cetin",
@@ -38,12 +38,19 @@
       {
         "from": "integrations/native-ads",
         "to": "plugins/native-ads",
-        "filter": ["**/*", "!**/test/**", "!probe.js", "!prepare.js"]
+        "filter": [
+          "**/*",
+          "!**/test/**",
+          "!probe.js",
+          "!prepare.js"
+        ]
       },
       {
         "from": "integrations/native-ads/node_modules",
         "to": "plugins/native-ads/node_modules",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "fuxa-runtime/node_modules",
