@@ -32,17 +32,22 @@ C:\ProgramData\fuxa\
 ├─ node\           Node.js
 ├─ app\            FUXA (app\node_modules\@frangoteam\fuxa)
 ├─ data\           proje, ayarlar, veritabanları, günlükler (data\_logs\fuxa.log), proje yedekleri (data\backups\)
-└─ start-fuxa.cmd  FUXA'yı başlatır
+├─ browser\        runtime penceresinin Edge profili
+├─ start-fuxa.cmd  FUXA'yı arka planda (pencere açmadan) başlatır, runtime view'i açar (-Page editor: editörü)
+├─ stop-fuxa.cmd   FUXA'yı durdurur
+└─ fuxa-server.cmd FUXA'yı görünür konsolla çalıştırır (arıza ararken; pencere kapanırsa FUXA durur)
 ```
 
 Kısayollar (kurulumu yapan kullanıcı için):
 
 | Kısayol | Nerede | Açar |
 | --- | --- | --- |
-| `FUXA Editor` | Başlat menüsü → FUXA, masaüstü | `http://127.0.0.1:1881/editor`. FUXA çalışmıyorsa önce `start-fuxa.cmd`'yi küçültülmüş pencerede başlatır, hazır olunca editörü açar (`open-editor.ps1`) |
+| `Start FUXA` | Başlat menüsü → FUXA, masaüstü | FUXA çalışmıyorsa arka planda (pencere açmadan) başlatır; runtime view'i (`http://127.0.0.1:1881/home`) Edge **uygulama penceresinde** (adres çubuğu/sekme yok) açar. Pencere zaten açıksa yenisini açmaz, mevcut pencereyi geri getirip öne alır. Edge yoksa varsayılan tarayıcıda açar |
+| `FUXA Editor` | Başlat menüsü → FUXA | FUXA çalışmıyorsa başlatır, editörü (`/editor`) varsayılan tarayıcıda açar |
+| `Stop FUXA` | Başlat menüsü → FUXA | `stop-fuxa.cmd`: FUXA'yı durdurur |
 | `FUXA Project Folder` | Başlat menüsü → FUXA | `C:\ProgramData\fuxa` (kurulum klasörü; proje `data\` altında) |
 
-Sonraki açılışlarda `start-fuxa.cmd` kullanılır. FUXA her zaman `data\` klasörünü kullanır, nereden başlatıldığı fark etmez.
+Sonraki açılışlarda **Start FUXA** kısayolu (ya da `start-fuxa.cmd`) kullanılır. FUXA penceresiz çalışır; günlükler `data\_logs\fuxa.log` ve `api.log`'da. Durdurmak için **Stop FUXA**. FUXA her zaman `data\` klasörünü kullanır, nereden başlatıldığı fark etmez.
 
 Seçenekler: `install-fuxa.cmd -InstallDir D:\fuxa` (başka klasör), `-Port 1882`, `-NoStart` (kurup başlatmaz), `-Stop` (çalışan FUXA'yı kapatıp devam eder; yoksa kurulum durur).
 
@@ -54,7 +59,7 @@ fuxaw'da **Dosya → Publish** ile üretilen klasörü hedefe kopyala ve içinde
 
 ## Kaldırma
 
-`uninstall-fuxa.cmd`: FUXA'yı durdurur; `node\`, `app\`, `start-fuxa.cmd`, `open-editor.ps1` ve kısayolları siler. `data\` (proje, yedekler) kalır; `install-fuxa.cmd` tekrar çalışınca aynı proje açılır. Tamamen silmek için bundan sonra `C:\ProgramData\fuxa` klasörünü elle sil.
+`uninstall-fuxa.cmd`: FUXA'yı durdurur; `node\`, `app\`, başlatıcıları (`start-fuxa`, `stop-fuxa`, `fuxa-server`), `browser\` profilini ve kısayolları siler (runtime penceresi açıksa kapatır). `data\` (proje, yedekler) kalır; `install-fuxa.cmd` tekrar çalışınca aynı proje açılır. Tamamen silmek için bundan sonra `C:\ProgramData\fuxa` klasörünü elle sil.
 
 ## Notlar
 

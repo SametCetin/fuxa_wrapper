@@ -1,5 +1,5 @@
-# Removes an install-fuxa install: stops FUXA, deletes node\, app\, start-fuxa.cmd, open-editor.ps1 and the shortcuts
-# (Start menu FUXA folder, desktop "FUXA Editor"; names as in install-fuxa.ps1).
+# Removes an install-fuxa install: stops FUXA, deletes node\, app\, the launchers and the shortcuts
+# (Start menu FUXA folder, desktop "Start FUXA"; names as in install-fuxa.ps1, plus those of earlier versions).
 # data\ (project, settings, databases, logs, backups) is kept; running install-fuxa again opens the same project.
 # To remove everything, delete the install folder by hand afterwards.
 # Usage: uninstall-fuxa.cmd [-InstallDir C:\ProgramData\fuxa] [-Yes]
@@ -12,11 +12,11 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path $InstallDir)) { Write-Host "Nothing installed: $InstallDir"; return }
 $InstallDir = (Resolve-Path $InstallDir).Path
-$shortcuts = @(
-  (Join-Path ([Environment]::GetFolderPath('Programs')) 'FUXA'),
-  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'FUXA Editor.lnk'),
-  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'FUXA Editor.url'))
-$remove = @(@('node', 'app', 'start-fuxa.cmd', 'open-editor.ps1') | ForEach-Object { Join-Path $InstallDir $_ }) + $shortcuts | Where-Object { Test-Path $_ }
+$desktop = [Environment]::GetFolderPath('Desktop')
+$shortcuts = @((Join-Path ([Environment]::GetFolderPath('Programs')) 'FUXA')) +
+  @('Start FUXA.lnk', 'FUXA Editor.lnk', 'FUXA Editor.url' | ForEach-Object { Join-Path $desktop $_ })
+$files = 'node', 'app', 'browser', 'start-fuxa.cmd', 'start-fuxa.ps1', 'stop-fuxa.cmd', 'stop-fuxa.ps1', 'fuxa-server.cmd', 'open-editor.ps1'
+$remove = @($files | ForEach-Object { Join-Path $InstallDir $_ }) + $shortcuts | Where-Object { Test-Path $_ }
 if (-not $remove) { Write-Host "Nothing to remove: $InstallDir"; return }
 
 Write-Host "Will remove: $($remove -join ', ')"
@@ -26,8 +26,11 @@ if (-not $Yes) {
   if ($answer -notmatch '^[yY]') { throw 'Cancelled.' }
 }
 
+# FUXA (node.exe under the install folder) and the runtime view window (Edge using the browser\ profile, which it locks).
+$profileDir = Join-Path $InstallDir 'browser'
 $procs = @(Get-CimInstance Win32_Process | Where-Object {
-    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir + '\', [StringComparison]::OrdinalIgnoreCase) })
+    ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir + '\', [StringComparison]::OrdinalIgnoreCase)) -or
+    ($_.Name -eq 'msedge.exe' -and $_.CommandLine -and $_.CommandLine.Contains($profileDir)) })
 foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
 if ($procs.Count) { Write-Host 'Stopped the running FUXA.'; Start-Sleep -Seconds 2 }
 
