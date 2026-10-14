@@ -46,10 +46,10 @@ function main() {
   for (const f of fs.readdirSync(path.join(ROOT, 'patch'))) {
     if (f === 'hook.js') continue;
     const text = fs.readFileSync(path.join(ROOT, 'patch', f), 'utf8').replace(/\r?\n/g, '\r\n');
-    // Windows PowerShell 5.1 BOM'suz UTF-8'i ANSI okur; Türkçe metinler için BOM ekle.
+    // Betikler ASCII; BOM yine de eklenir: Windows PowerShell 5.1 BOM'suz UTF-8'i ANSI okur.
     fs.writeFileSync(path.join(out, f), (f.endsWith('.ps1') ? '\ufeff' : '') + text, 'utf8');
   }
-  fs.writeFileSync(path.join(out, 'surum.json'), JSON.stringify({ paket: name, fuxa: engines, node: NODE_VERSION, adsEklentisi: plugin.version }, null, 2) + '\n');
+  fs.writeFileSync(path.join(out, 'version.json'), JSON.stringify({ package: name, fuxa: engines, node: NODE_VERSION, adsPlugin: plugin.version }, null, 2) + '\n');
 
   const zip = `${out}.zip`;
   fs.rmSync(zip, { force: true });

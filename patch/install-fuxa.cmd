@@ -1,5 +1,5 @@
 @echo off
-rem fuxaw hedef kurulumu: Node.js + FUXA (internetten) + fuxaw yamasi. Parametreler install-fuxa.ps1'e gecer (or. install-fuxa.cmd -Hedef D:\fuxa).
+rem fuxaw target install: Node.js + FUXA (from the internet) + fuxaw patch. Arguments go to install-fuxa.ps1 (e.g. install-fuxa.cmd -InstallDir D:\fuxa).
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-fuxa.ps1" %*
-if errorlevel 1 (echo. & echo KURULUM TAMAMLANAMADI.) else (echo. & echo Tamam.)
+if errorlevel 1 (echo. & echo INSTALL FAILED.) else (echo. & echo Done.)
 pause
