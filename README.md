@@ -78,6 +78,7 @@ npm start          # uygulamayı geliştirme modunda açar
 npm test           # çekirdek testler
 npm run dist:dir   # kurulumsuz paket: dist/win-unpacked/fuxaw.exe
 npm run dist:fast  # imzalamadan hızlı Windows paketi: dist/fast/win-unpacked/fuxaw.exe
+npm run dist:patch # hedef makine yaması: dist/patch/fuxaw-yama-*.zip
 npm run dist       # kurulum paketi
 ```
 
@@ -103,6 +104,8 @@ fuxa_wrapper/
 │  └─ renderer/             ← pencere arayüzü (index.html, app.css, app.js) + açılış penceresi (splash.html/css)
 ├─ fuxa-runtime/package.json ← uygulamayla gelen FUXA sürümü (1.3.4)
 ├─ scripts/fetch-node.js    ← paket için Node.js indirme
+├─ scripts/build-patch.js   ← hedef makine yaması (dist:patch)
+├─ patch/                   ← yamanın betikleri ve README'si (uygula/geri-al)
 └─ tests/
    ├─ core.test.js
    └─ fixtures/fuxa1_live.json ← gerçek projenin kopyası (test verisi)
@@ -118,3 +121,5 @@ fuxa_wrapper/
 ## TwinCAT 4026 UM bağlantısı
 
 Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe bağımsız bir eklentidir. Orijinal editör paketinin dosyaları değiştirilmez; eklenti uygulamayla birlikte gelir ve başlangıçta çevrimdışı yüklenir. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
+
+**Hedef makine:** FUXA 1.3.4 normal npm ile kurulur; ADS (fuxaw) sürücüsü ve editör formu küçük bir yamayla eklenir (`npm run dist:patch` → `uygula.cmd`). FUXA dosyalarından sadece `main.js`'e tek satır eklenir; `geri-al.cmd` geri alır. Ayrıntı: [patch/README.md](patch/README.md).
