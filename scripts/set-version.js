@@ -1,6 +1,6 @@
 'use strict';
 // Sürümü ayarlar: node scripts/set-version.js 27.1.10.26   (npm run version:set -- 27.1.10.26; başta V/v olabilir)
-// fuxaw sürümü dört parçalıdır (Haffner biçimi, ör. 27.1.10.26), etiketi V<sürüm>. npm ve Electron üç parçalı semver
+// fuxaw sürümü dört parçalıdır (ör. 27.1.10.26), etiketi V<sürüm>. npm ve Electron üç parçalı semver
 // istediği için package.json'da:
 //   fullVersion          27.1.10.26   uygulamanın gösterdiği sürüm, dosya adları, release etiketi (V27.1.10.26)
 //   version              27.1.10      ilk üç parça (npm/Electron)
