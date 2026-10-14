@@ -8,7 +8,7 @@
 
 **Her betik tek dosyadır, yanında başka dosya gerekmez.** `install-fuxa.cmd` tek başına bir USB'ye ya da e-postaya konup verilebilir: sürüm bilgisi ve ADS (fuxaw) eklentisi dosyanın içine gömülüdür (~0,6 MB). Çalışınca kendi PowerShell kısmını `%TEMP%`'e çıkarıp çalıştırır, bitince siler.
 
-> Bu klasör (`patch\` repoda) **kaynaktır**, buradan kurulum yapılmaz. Betikler `npm run dist:patch` ile `dist\patch\fuxaw-install-<sürüm>\` altına üretilir; hedefe o dosyalar götürülür. Kaynaklar: `install-fuxa.ps1` (şablon; sürümler ve eklenti paketlemede yazılır), `uninstall-fuxa.ps1`, `hook.js` (eklentinin FUXA'ya bağlandığı nokta). `download-project`'in kaynağı `src/core/target/download-project.ps1`'dir, Publish yazar.
+> Bu klasör (`installer\` repoda) **kaynaktır**, buradan kurulum yapılmaz. Betikler `npm run dist:installer` ile `dist\installer\fuxaw-install-<sürüm>\` altına üretilir; hedefe o dosyalar götürülür. Kaynaklar: `install-fuxa.ps1` (şablon; sürümler ve eklenti paketlemede yazılır), `uninstall-fuxa.ps1`, `hook.js` (eklentinin FUXA'ya bağlandığı nokta). `download-project`'in kaynağı `src/core/target/download-project.ps1`'dir, Publish yazar.
 
 `install-fuxa.cmd` hedef makineye tek seferde şunları kurar:
 
@@ -35,6 +35,13 @@ C:\ProgramData\fuxa\
 └─ start-fuxa.cmd  FUXA'yı başlatır
 ```
 
+Kısayollar (kurulumu yapan kullanıcı için):
+
+| Kısayol | Nerede | Açar |
+| --- | --- | --- |
+| `FUXA Editor` | Başlat menüsü → FUXA, masaüstü | `http://127.0.0.1:1881/editor`. FUXA çalışmıyorsa önce `start-fuxa.cmd`'yi küçültülmüş pencerede başlatır, hazır olunca editörü açar (`open-editor.ps1`) |
+| `FUXA Project Folder` | Başlat menüsü → FUXA | `C:\ProgramData\fuxa` (kurulum klasörü; proje `data\` altında) |
+
 Sonraki açılışlarda `start-fuxa.cmd` kullanılır. FUXA her zaman `data\` klasörünü kullanır, nereden başlatıldığı fark etmez.
 
 Seçenekler: `install-fuxa.cmd -InstallDir D:\fuxa` (başka klasör), `-Port 1882`, `-NoStart` (kurup başlatmaz), `-Stop` (çalışan FUXA'yı kapatıp devam eder; yoksa kurulum durur).
@@ -47,7 +54,7 @@ fuxaw'da **Dosya → Publish** ile üretilen klasörü hedefe kopyala ve içinde
 
 ## Kaldırma
 
-`uninstall-fuxa.cmd`: FUXA'yı durdurur; `node\`, `app\` ve `start-fuxa.cmd`'yi siler. `data\` (proje, yedekler) kalır; `install-fuxa.cmd` tekrar çalışınca aynı proje açılır. Tamamen silmek için bundan sonra `C:\ProgramData\fuxa` klasörünü elle sil.
+`uninstall-fuxa.cmd`: FUXA'yı durdurur; `node\`, `app\`, `start-fuxa.cmd`, `open-editor.ps1` ve kısayolları siler. `data\` (proje, yedekler) kalır; `install-fuxa.cmd` tekrar çalışınca aynı proje açılır. Tamamen silmek için bundan sonra `C:\ProgramData\fuxa` klasörünü elle sil.
 
 ## Notlar
 

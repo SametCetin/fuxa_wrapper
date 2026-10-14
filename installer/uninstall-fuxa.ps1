@@ -1,4 +1,5 @@
-# Removes an install-fuxa install: stops FUXA, deletes node\, app\ and start-fuxa.cmd.
+# Removes an install-fuxa install: stops FUXA, deletes node\, app\, start-fuxa.cmd, open-editor.ps1 and the shortcuts
+# (Start menu FUXA folder, desktop "FUXA Editor"; names as in install-fuxa.ps1).
 # data\ (project, settings, databases, logs, backups) is kept; running install-fuxa again opens the same project.
 # To remove everything, delete the install folder by hand afterwards.
 # Usage: uninstall-fuxa.cmd [-InstallDir C:\ProgramData\fuxa] [-Yes]
@@ -11,7 +12,11 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path $InstallDir)) { Write-Host "Nothing installed: $InstallDir"; return }
 $InstallDir = (Resolve-Path $InstallDir).Path
-$remove = @('node', 'app', 'start-fuxa.cmd') | ForEach-Object { Join-Path $InstallDir $_ } | Where-Object { Test-Path $_ }
+$shortcuts = @(
+  (Join-Path ([Environment]::GetFolderPath('Programs')) 'FUXA'),
+  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'FUXA Editor.lnk'),
+  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'FUXA Editor.url'))
+$remove = @(@('node', 'app', 'start-fuxa.cmd', 'open-editor.ps1') | ForEach-Object { Join-Path $InstallDir $_ }) + $shortcuts | Where-Object { Test-Path $_ }
 if (-not $remove) { Write-Host "Nothing to remove: $InstallDir"; return }
 
 Write-Host "Will remove: $($remove -join ', ')"

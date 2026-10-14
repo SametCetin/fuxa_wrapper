@@ -1,12 +1,12 @@
 'use strict';
 // Hedef makine kurulumu: tek dosyalık betikler, yanlarında başka dosya gerekmez.
-//   dist/patch/<ad>/install-fuxa.cmd     Node.js + FUXA 1.3.4'ü internetten kurar, gömülü ADS (fuxaw) eklentisini uygular
-//   dist/patch/<ad>/uninstall-fuxa.cmd   kaldırır, data\ (proje) kalır
-//   dist/patch/<ad>/README.md            kullanım (bilgi için; betikler onsuz çalışır)
-//   dist/patch/<ad>.zip                  aynı klasör, taşımak için
-// Şablonlar: patch/install-fuxa.ps1, patch/uninstall-fuxa.ps1. Sürümler ve eklenti (zip, base64) şablona yazılır,
+//   dist/installer/<ad>/install-fuxa.cmd     Node.js + FUXA 1.3.4'ü internetten kurar, gömülü ADS (fuxaw) eklentisini uygular
+//   dist/installer/<ad>/uninstall-fuxa.cmd   kaldırır, data\ (proje) kalır
+//   dist/installer/<ad>/README.md            kullanım (bilgi için; betikler onsuz çalışır)
+//   dist/installer/<ad>.zip                  aynı klasör, taşımak için
+// Şablonlar: installer/install-fuxa.ps1, installer/uninstall-fuxa.ps1. Sürümler ve eklenti (zip, base64) şablona yazılır,
 // sonra src/core/target/selfcontained.js ile .cmd'ye sarılır.
-// Önce: npm run setup:ads (npm run dist:patch yapar). Yerel köprü için Windows x64'te üretilir.
+// Önce: npm run setup:ads (npm run dist:installer yapar). Yerel köprü için Windows x64'te üretilir.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -16,7 +16,7 @@ const { NODE_VERSION } = require('./fetch-node');
 const { selfContainedCmd } = require('../src/core/target/selfcontained');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT_BASE = path.join(ROOT, 'dist', 'patch');
+const OUT_BASE = path.join(ROOT, 'dist', 'installer');
 // Git Bash'teki tar C:\ yolunu uzak sunucu sanar; Windows'un kendi tar'ı (bsdtar) zip de yazar.
 const TAR = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
 
@@ -50,7 +50,7 @@ function pluginBase64(pluginDir, versionInfo) {
       },
     });
     fs.copyFileSync(path.join(ROOT, 'src', 'main', 'editorTagClear.js'), path.join(lib, 'editorTagClear.js'));
-    fs.copyFileSync(path.join(ROOT, 'patch', 'hook.js'), path.join(lib, 'hook.js'));
+    fs.copyFileSync(path.join(ROOT, 'installer', 'hook.js'), path.join(lib, 'hook.js'));
     fs.writeFileSync(path.join(lib, 'version.json'), JSON.stringify(versionInfo, null, 2) + '\n');
     const zip = path.join(tmp, 'fuxaw.zip');
     execFileSync(TAR, ['-a', '-c', '-f', zip, '-C', lib, '.'], { stdio: 'inherit' });
@@ -76,16 +76,16 @@ function main() {
   fs.mkdirSync(out, { recursive: true });
 
   const info = { package: name, fuxa: engines[0], node: NODE_VERSION, adsPlugin: plugin.version };
-  const install = fill(fs.readFileSync(path.join(ROOT, 'patch', 'install-fuxa.ps1'), 'utf8'), {
+  const install = fill(fs.readFileSync(path.join(ROOT, 'installer', 'install-fuxa.ps1'), 'utf8'), {
     PACKAGE: name,
     NODE_VERSION,
     FUXA_VERSION: engines[0],
     PLUGIN_ZIP: pluginBase64(pluginDir, info),
   });
   fs.writeFileSync(path.join(out, 'install-fuxa.cmd'), selfContainedCmd(install, 'INSTALL FAILED.'), 'ascii');
-  const uninstall = fs.readFileSync(path.join(ROOT, 'patch', 'uninstall-fuxa.ps1'), 'utf8');
+  const uninstall = fs.readFileSync(path.join(ROOT, 'installer', 'uninstall-fuxa.ps1'), 'utf8');
   fs.writeFileSync(path.join(out, 'uninstall-fuxa.cmd'), selfContainedCmd(uninstall, 'UNINSTALL FAILED.'), 'ascii');
-  fs.copyFileSync(path.join(ROOT, 'patch', 'README.md'), path.join(out, 'README.md'));
+  fs.copyFileSync(path.join(ROOT, 'installer', 'README.md'), path.join(out, 'README.md'));
 
   const zip = `${out}.zip`;
   fs.rmSync(zip, { force: true });
