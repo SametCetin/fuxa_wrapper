@@ -12,6 +12,36 @@ const lintmod = require('./lint');
 const { safeName } = require('./fxprj');
 const { selfContainedCmd } = require('./target/selfcontained');
 
+// FUXA 1.3.4'ün yeni proje layout'u (client LayoutSettings/NavigationSettings/HeaderSettings varsayılanları,
+// JSON'a yazıldığı haliyle: değeri olmayan alanlar yok). Runtime layout varsa iç alanlarını (ör. navigation.mode)
+// kontrolsüz okur; bu yüzden layout'u olmayan projeye kısmi değil, bu tam nesne yazılır. FUXA sürümü değişirse
+// yeniden doğrulanmalı.
+const DEFAULT_LAYOUT = {
+  autoresize: false,
+  start: '',
+  navigation: { mode: 'over', type: 'block', bkcolor: '#F4F5F7', fgcolor: '#1D1D1D', logo: false },
+  header: { bkcolor: '#ffffff', fgcolor: '#000000', height: 46, buttonHeight: 36, fontSize: 13, itemsAnchor: 'left' },
+  showdev: true,
+  inputdialog: 'false',
+  hidenavigation: false,
+  theme: '',
+  loginonstart: false,
+  loginoverlaycolor: 'none',
+  show_connection_error: true,
+  customStyles: '',
+};
+
+/**
+ * Müşteriye giden proje: runtime'daki editör düğmesi (sol alt) gizli (layout.showdev = false); düzenleme fuxaw'dan
+ * yapılır (kullanıcı kararı, 2026-10-14). Kaynak proje (.fxprj) değişmez.
+ */
+function targetProject(project) {
+  const prj = model.cleanProject(project);
+  prj.hmi = prj.hmi || {};
+  prj.hmi.layout = { ...(prj.hmi.layout || structuredClone(DEFAULT_LAYOUT)), showdev: false };
+  return prj;
+}
+
 // Önceki sürümlerin yazdığı, artık üretilmeyen dosyalar; Publish bunları temizler.
 const STALE = ['README.md', 'download-project.cmd', 'download-project.ps1'];
 
@@ -61,11 +91,11 @@ function publish(doc, fxprjPath) {
   if (!p.dir) return { ok: false, reason: 'nodir', ...p };
   fs.mkdirSync(p.dir, { recursive: true });
   const [cmdFile, prjFile] = p.files;
-  const json = JSON.stringify(model.cleanProject(doc.project), null, 2) + '\n';
+  const json = JSON.stringify(targetProject(doc.project), null, 2) + '\n';
   fs.writeFileSync(cmdFile, downloadCmd(doc.name, json), 'ascii');
   fs.writeFileSync(prjFile, json, 'utf8');
   for (const f of STALE) fs.rmSync(path.join(p.dir, f), { force: true });
   return { ok: true, ...p };
 }
 
-module.exports = { resolveDir, plan, publish, psName };
+module.exports = { resolveDir, plan, publish, psName, targetProject, DEFAULT_LAYOUT };

@@ -176,7 +176,11 @@ test('publish tek dosyalık download-<ad>.cmd (proje gömülü) + JSON yazar', (
   assert.equal(res.ok, true);
   assert.equal(res.dir, path.join(dir, 'publish', 'p1'));
   const out = JSON.parse(fs.readFileSync(path.join(res.dir, 'p1.json'), 'utf8'));
-  assert.equal(model.digest(out), model.digest(doc.project));
+  assert.equal(out.hmi.layout.showdev, false, 'müşteride editör düğmesi gizli');
+  // Layout dışında proje kaynakla aynı; kaynak (.fxprj) değişmez.
+  const src = fxprj.read(file).doc.project;
+  assert.equal(model.digest({ ...out, hmi: { ...out.hmi, layout: src.hmi.layout } }), model.digest(src));
+  assert.equal(src.hmi.layout && src.hmi.layout.showdev, live().hmi.layout && live().hmi.layout.showdev);
   assert.deepEqual(res.files.map((f) => path.basename(f)), ['download-p1.cmd', 'p1.json']);
   const cmd = fs.readFileSync(path.join(res.dir, 'download-p1.cmd'), 'utf8');
   assert.ok(cmd.startsWith('@echo off\r\n'));
@@ -201,6 +205,22 @@ test('publish eski sürümlerin README / download-project kalıntılarını sile
   for (const f of ['README.md', 'download-project.cmd', 'download-project.ps1']) fs.writeFileSync(path.join(out, f), 'eski');
   assert.equal(publisher.publish(doc, file).ok, true);
   assert.deepEqual(fs.readdirSync(out).sort(), ['download-p1.cmd', 'p1.json']);
+});
+
+test('publish: layout yoksa FUXA varsayılanı showdev=false ile yazılır, varsa sadece showdev değişir', () => {
+  const noLayout = live();
+  delete noLayout.hmi.layout;
+  const a = publisher.targetProject(noLayout);
+  assert.deepEqual(a.hmi.layout, { ...publisher.DEFAULT_LAYOUT, showdev: false });
+  assert.equal(a.hmi.layout.navigation.mode, 'over', 'runtime layout.navigation.mode okur');
+  assert.equal(noLayout.hmi.layout, undefined, 'girdi değişmez');
+  assert.equal(publisher.DEFAULT_LAYOUT.showdev, true, 'varsayılan nesne değişmez');
+
+  const withLayout = live();
+  withLayout.hmi.layout = { ...publisher.DEFAULT_LAYOUT, theme: 'dark', start: 'v_1', showdev: true };
+  const b = publisher.targetProject(withLayout);
+  assert.deepEqual(b.hmi.layout, { ...withLayout.hmi.layout, showdev: false });
+  assert.equal(withLayout.hmi.layout.showdev, true, 'girdi değişmez');
 });
 
 test('publish: proje adı betiğe ASCII ve tırnak kaçışlı girer', () => {
