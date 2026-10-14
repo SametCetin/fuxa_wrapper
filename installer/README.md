@@ -55,7 +55,7 @@ Seçenekler: `install-fuxa.cmd -InstallDir D:\fuxa` (başka klasör), `-Port 188
 
 ## Projeyi yükle
 
-fuxaw'da **Dosya → Publish** ile üretilen `download-<proje>.cmd`'yi (ör. `download-Simu_294_35.cmd`; proje içine gömülü, tek dosya) hedefe kopyala ve çift tıkla. FUXA çalışmıyorsa arka planda başlatılır, mevcut proje `data\backups\` altına yedeklenir, sonra yeni proje yüklenir; bağlantılar hemen kurulur, FUXA'yı yeniden başlatmak gerekmez. Son olarak runtime ekranı (Start FUXA penceresi) yeni projeyle yeniden açılır (`-NoView` ile atlanır). Geri almak için betiğin sonunda yazdığı komutu çalıştır: `download-<proje>.cmd -Project <yedek json>`.
+fuxaw'da **Dosya → Publish** ile üretilen `download-<proje>.cmd`'yi (ör. `download-Simu_294_35.cmd`; proje içine gömülü, tek dosya) hedefe kopyala ve çift tıkla. FUXA çalışmıyorsa arka planda başlatılır, mevcut proje `data\backups\` altına yedeklenir, sonra yeni proje yüklenir; bağlantılar hemen kurulur, FUXA'yı yeniden başlatmak gerekmez. Son olarak runtime ekranı (Start FUXA penceresi) yeni projeyle yeniden açılır (`-NoView` ile atlanır). Publish edilen projede runtime'daki editör düğmesi (sol alt) gizlidir; proje fuxaw'da düzenlenir. Geri almak için betiğin sonunda yazdığı komutu çalıştır: `download-<proje>.cmd -Project <yedek json>`.
 
 ## Kaldırma
 
