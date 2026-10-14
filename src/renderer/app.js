@@ -3,6 +3,7 @@
 // proje/tag/dosya adları dışarıdan gelir.
 
 const $ = (id) => document.getElementById(id);
+const { t } = window.I18N;
 
 function el(tag, props = {}, ...children) {
   const e = document.createElement(tag);
@@ -21,8 +22,26 @@ let activeTab = 'editor';
 let modalOpen = false;
 let analysis = null; // {lint, tags}
 
+// ---------------------------------------------------------------- dil
+// Dil ana süreçte seçilir (Ayarlar → Dil) ve durumla gelir; HTML'deki sabit metinler data-i18n* ile basılır.
+function applyStaticText() {
+  document.documentElement.lang = window.I18N.getLanguage();
+  document.querySelectorAll('[data-i18n]').forEach((e) => { e.textContent = t(e.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach((e) => { e.title = t(e.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((e) => { e.placeholder = t(e.dataset.i18nPlaceholder); });
+}
+
+function setLanguage(lang) {
+  if (!lang || lang === document.documentElement.dataset.lang) return false;
+  document.documentElement.dataset.lang = lang;
+  window.I18N.setLanguage(lang);
+  applyStaticText();
+  return true;
+}
+
 // ---------------------------------------------------------------- durum
 function render(s) {
+  const langChanged = setLanguage(s.lang);
   state = s;
   const p = s.project;
 
@@ -30,7 +49,7 @@ function render(s) {
   info.replaceChildren();
   if (p) {
     info.append(el('b', { text: p.name }));
-    if (p.dirty) info.append(el('span', { class: 'dirty', text: ' ● kaydedilmedi' }));
+    if (p.dirty) info.append(el('span', { class: 'dirty', text: t('ui.unsavedMark') }));
   }
 
   // Bileşen durumu sadece sorun olunca gösterilir (açılışı açılış penceresi bekler).
@@ -38,29 +57,31 @@ function render(s) {
   const f = s.fuxa;
   chip.hidden = f.status === 'ready';
   chip.className = `chip ${f.status}`;
-  chip.textContent = f.status === 'starting' ? 'Bileşenler yükleniyor…' : 'Bileşen hatası';
+  chip.textContent = f.status === 'starting' ? t('engine.loading') : t('engine.error');
   chip.title = f.status === 'error' ? f.error : '';
 
   $('welcome').hidden = !!p;
   $('tabs').style.visibility = p ? 'visible' : 'hidden';
   renderRecent(s.recent);
-  $('welcomeStatus').textContent = f.status === 'error' ? `Uygulama bileşenleri başlatılamadı: ${f.error}`
-    : f.status === 'starting' ? 'Bileşenler yükleniyor…' : '';
+  $('welcomeStatus').textContent = f.status === 'error' ? t('engine.failed', { error: f.error })
+    : f.status === 'starting' ? t('engine.loading') : '';
   $('btnRetry').hidden = f.status !== 'error';
   $('wNew').disabled = s.busy || f.status !== 'ready';
   $('wOpen').disabled = s.busy || f.status !== 'ready';
 
-  $('statusText').textContent = s.busy ? 'Çalışıyor…' : (p && p.note) || (p && !p.dirty ? 'Kaydedildi' : '');
-  $('statusPath').textContent = p ? (p.path || 'kaydedilmemiş proje') : '';
-  $('editorPlaceholder').textContent = f.status === 'ready' ? 'Editör yükleniyor…' : 'Bileşenler yükleniyor…';
+  $('statusText').textContent = s.busy ? t('ui.busy') : (p && p.note) || (p && !p.dirty ? t('ui.saved') : '');
+  $('statusPath').textContent = p ? (p.path || t('ui.unsavedProject')) : '';
+  $('editorPlaceholder').textContent = f.status === 'ready' ? t('ui.loadingEditor') : t('engine.loading');
   syncEditor();
+  // Kontrol sonuçları (lint mesajları, kullanım yerleri) ana süreçte üretilir: yeni dilde yeniden iste.
+  if (langChanged && analysis && p) refreshAnalysis();
 }
 
 function renderRecent(list) {
   const ul = $('recentList');
   ul.replaceChildren();
   if (!list.length) {
-    ul.append(el('li', { class: 'muted', text: 'Henüz yok.' }));
+    ul.append(el('li', { class: 'muted', text: t('ui.recentNone') }));
     return;
   }
   for (const p of list) {
@@ -118,18 +139,18 @@ function renderLint() {
   const body = $('lintBody');
   body.replaceChildren();
   const found = (analysis && analysis.lint) || [];
-  const errors = found.filter((f) => f.level === 'HATA').length;
+  const errors = found.filter((f) => f.level === 'HATA').length; // seviye kodları: HATA / UYARI
   const badge = $('lintBadge');
   badge.hidden = !found.length;
   badge.textContent = String(errors || found.length);
   badge.classList.toggle('warn', !errors);
   if (!found.length) {
-    body.append(el('tr', {}, el('td', { colspan: '3', class: 'empty', text: 'Sorun bulunmadı.' })));
+    body.append(el('tr', {}, el('td', { colspan: '3', class: 'empty', text: t('ui.lintNone') })));
     return;
   }
   for (const f of found) {
     body.append(el('tr', {},
-      el('td', { class: `level-${f.level}`, text: f.level }),
+      el('td', { class: `level-${f.level}`, text: t(`lint.level.${f.level}`) }),
       el('td', { text: f.where }),
       el('td', { text: f.message })));
   }
@@ -151,16 +172,16 @@ function renderTags() {
   const sel = $('tagDevice');
   const devs = [...new Set(rows.map((r) => r.device))].sort();
   const prev = sel.value;
-  sel.replaceChildren(el('option', { value: '', text: 'Tüm cihazlar' }), ...devs.map((d) => el('option', { value: d, text: d })));
+  sel.replaceChildren(el('option', { value: '', text: t('ui.allDevices') }), ...devs.map((d) => el('option', { value: d, text: d })));
   sel.value = devs.includes(prev) ? prev : '';
 
   const shown = visibleTags();
-  $('tagCount').textContent = `${shown.length} / ${rows.length} tag`;
+  $('tagCount').textContent = t('ui.tagCount', { shown: shown.length, total: rows.length });
   const body = $('tagBody');
   body.replaceChildren();
   $('tagUses').hidden = true;
   if (!shown.length) {
-    body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: rows.length ? 'Filtreye uyan tag yok.' : 'Projede tag yok.' })));
+    body.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: rows.length ? t('ui.tagsNoMatch') : t('ui.tagsNone') })));
     return;
   }
   for (const r of shown) {
@@ -180,7 +201,7 @@ function showUses(r, tr) {
   document.querySelectorAll('#tagBody tr.selected').forEach((x) => x.classList.remove('selected'));
   tr.classList.add('selected');
   const box = $('tagUses');
-  box.replaceChildren(el('h3', { text: `${r.name} (${r.device}) kullanıldığı yerler` }),
+  box.replaceChildren(el('h3', { text: t('ui.tagUsesTitle', { name: r.name, device: r.device }) }),
     el('ul', {}, ...r.uses.map((u) => el('li', { text: `${u.where} — ${u.how}` }))));
   box.hidden = false;
 }
@@ -194,10 +215,10 @@ $('btnTagRefresh').addEventListener('click', refreshAnalysis);
 $('btnLintRefresh').addEventListener('click', refreshAnalysis);
 $('btnTagCopy').addEventListener('click', async () => {
   const rows = visibleTags();
-  const lines = [['Ad', 'Tip', 'Adres', 'Cihaz', 'Kullanım'].join('\t'),
+  const lines = [['ui.colName', 'ui.colType', 'ui.colAddress', 'ui.colDevice', 'ui.colUses'].map((k) => t(k)).join('\t'),
     ...rows.map((r) => [r.name, r.type, r.address, r.device, r.uses.length].join('\t'))];
   await navigator.clipboard.writeText(lines.join('\n'));
-  $('statusText').textContent = `${rows.length} tag panoya kopyalandı`;
+  $('statusText').textContent = t('ui.tagsCopied', { count: rows.length });
 });
 
 // ---------------------------------------------------------------- kontrol alt görünümleri
@@ -238,24 +259,24 @@ document.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- publish
 function findingsList(found) {
-  if (!found.length) return el('p', { class: 'ok', text: 'Kontrol: sorun yok.' });
+  if (!found.length) return el('p', { class: 'ok', text: t('publish.noIssues') });
   return el('ul', { class: 'findings' }, ...found.map((f) => el('li', {},
-    el('span', { class: `level-${f.level}`, text: f.level }), ` ${f.where}: ${f.message}`)));
+    el('span', { class: `level-${f.level}`, text: t(`lint.level.${f.level}`) }), ` ${f.where}: ${f.message}`)));
 }
 
 function showPublishPlan(plan) {
   const blocked = plan.errors > 0;
-  openModal('Publish (klasöre)', [
-    el('p', { class: 'muted', text: 'Kaydedilmiş proje hedef makine için klasöre yazılır. Ağ üzerinden hiçbir yere gönderilmez; klasörü hedef makineye elle taşı.' }),
+  openModal(t('publish.title'), [
+    el('p', { class: 'muted', text: t('publish.intro') }),
     el('dl', { class: 'kv' },
-      el('dt', { text: 'Klasör' }), el('dd', { text: plan.dir || '-' }),
-      el('dt', { text: 'Dosyalar' }), el('dd', { text: plan.files.map((f) => f.split(/[\\/]/).pop()).join(', ') })),
-    blocked ? el('p', { class: 'err', text: `${plan.errors} hata var; publish yapılmaz. Editörde düzeltip kaydet.` }) : null,
+      el('dt', { text: t('publish.folder') }), el('dd', { text: plan.dir || '-' }),
+      el('dt', { text: t('publish.files') }), el('dd', { text: plan.files.map((f) => f.split(/[\\/]/).pop()).join(', ') })),
+    blocked ? el('p', { class: 'err', text: t('publish.blocked', { count: plan.errors }) }) : null,
     findingsList(plan.lint),
   ].filter(Boolean), [
-    { label: 'Klasörü değiştir…', onclick: async () => { const p = await window.fxw.publishChooseDir(); if (p) showPublishPlan(p); } },
-    { label: 'İptal', onclick: closeModal },
-    { label: 'Publish', primary: true, disabled: blocked, onclick: runPublish },
+    { label: t('publish.changeDir'), onclick: async () => { const p = await window.fxw.publishChooseDir(); if (p) showPublishPlan(p); } },
+    { label: t('common.cancel'), onclick: closeModal },
+    { label: t('publish.run'), primary: true, disabled: blocked, onclick: runPublish },
   ]);
 }
 
@@ -266,13 +287,14 @@ async function runPublish() {
     showPublishPlan(res);
     return;
   }
-  openModal('Publish tamamlandı', [
-    el('p', { class: 'ok', text: 'Hedef makine için klasör hazır.' }),
-    el('dl', { class: 'kv' }, el('dt', { text: 'Klasör' }), el('dd', { text: res.dir })),
-    el('p', { class: 'muted', text: `Hedef makineye sadece ${res.files[0].split(/[\\/]/).pop()} dosyasını gönder; çift tıklanınca projeyi oradaki sunucuya yükler (önce yedek alır). ${res.files[1].split(/[\\/]/).pop()} kayıt içindir, göndermek gerekmez.` }),
+  const base = (f) => f.split(/[\\/]/).pop();
+  openModal(t('publish.doneTitle'), [
+    el('p', { class: 'ok', text: t('publish.ready') }),
+    el('dl', { class: 'kv' }, el('dt', { text: t('publish.folder') }), el('dd', { text: res.dir })),
+    el('p', { class: 'muted', text: t('publish.doneHint', { cmd: base(res.files[0]), json: base(res.files[1]) }) }),
   ], [
-    { label: 'Klasörü aç', onclick: () => window.fxw.reveal(res.dir) },
-    { label: 'Tamam', primary: true, onclick: closeModal },
+    { label: t('publish.openDir'), onclick: () => window.fxw.reveal(res.dir) },
+    { label: t('common.ok'), primary: true, onclick: closeModal },
   ]);
 }
 

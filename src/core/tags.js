@@ -3,6 +3,7 @@
 
 const model = require('./model');
 const { GET_TAG_ID } = require('./lint');
+const { t } = require('./i18n');
 
 const byText = (f) => (a, b) => String(f(a)).localeCompare(String(f(b)));
 
@@ -30,9 +31,9 @@ function tagTable(items) {
     for (const [gid, ga] of Object.entries(view.items || {})) {
       const where = `${view.name} / ${ga.name || gid}`;
       const prop = ga.property || {};
-      if (byId.has(prop.variableId)) byId.get(prop.variableId).uses.push({ where, how: 'gösterim/renk' });
+      if (byId.has(prop.variableId)) byId.get(prop.variableId).uses.push({ where, how: t('tag.useDisplay') });
       for (const action of prop.actions || []) {
-        if (byId.has(action.variableId)) byId.get(action.variableId).uses.push({ where, how: `aksiyon → ${action.type}` });
+        if (byId.has(action.variableId)) byId.get(action.variableId).uses.push({ where, how: t('tag.useAction', { type: action.type }) });
       }
       for (const ev of prop.events || []) {
         const opts = ev.actoptions || {};
@@ -45,7 +46,7 @@ function tagTable(items) {
   }
   for (const [, sc] of model.itemsOfKind(items, 'script')) {
     for (const r of rows) {
-      if ((sc.code || '').includes(r.id)) r.uses.push({ where: `script ${sc.name}`, how: 'tag kimliği' });
+      if ((sc.code || '').includes(r.id)) r.uses.push({ where: `script ${sc.name}`, how: t('tag.useId') });
     }
     for (const m of (sc.code || '').matchAll(GET_TAG_ID)) {
       for (const r of byName.get(m[2]) || []) {
@@ -60,7 +61,7 @@ function tagTable(items) {
 function prepareTagRemoval(project, spec) {
   const device = project.devices && Object.hasOwn(project.devices, spec.deviceId) && project.devices[spec.deviceId];
   if (!device || !device.tags || !Object.hasOwn(device.tags, spec.tagId)) {
-    return { errors: ['Tag bulunamadı; listeyi yenile.'] };
+    return { errors: [t('tag.missing')] };
   }
   const row = tagTable(model.splitProject(project)).find(r => r.deviceId === device.id && r.id === spec.tagId);
   const updated = model.clone(device);
@@ -110,13 +111,13 @@ function buildTag(device, spec, id = newTagId(device.tags)) {
   const description = String(spec.description || '').trim();
   const internal = isInternal(device.type);
   const types = tagTypesFor(device);
-  if (!name) errors.push('Ad boş olamaz.');
+  if (!name) errors.push(t('tag.nameEmpty'));
   else if (Object.values(device.tags || {}).some((t) => String(t.name).toLowerCase() === name.toLowerCase())) {
-    errors.push(`"${device.name}" cihazında "${name}" adlı tag zaten var.`);
+    errors.push(t('tag.nameTaken', { device: device.name, name }));
   }
-  if (!type) errors.push('Tip seçilmeli.');
-  else if (types.length && !types.includes(type)) errors.push(`Bu cihaz için geçersiz tip: ${type}`);
-  if (!internal && !address) errors.push('Adres boş olamaz.');
+  if (!type) errors.push(t('tag.typeEmpty'));
+  else if (types.length && !types.includes(type)) errors.push(t('tag.typeInvalid', { type }));
+  if (!internal && !address) errors.push(t('tag.addressEmpty'));
   if (errors.length) return { errors };
 
   const daq = { enabled: false, interval: 60, changed: false, restored: false };

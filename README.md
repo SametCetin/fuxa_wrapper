@@ -11,7 +11,7 @@ Opens, edits and saves [FUXA](https://github.com/frangoteam/FUXA) HMI projects i
 
 Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases).
 
-> The app's own interface is in Turkish. Menu names below are given in English with the Turkish label in parentheses.
+> The app's interface is available in English and Turkish (**Settings → Language**). Menu names below are the English labels, with the Turkish label in parentheses.
 
 ## Usage
 
@@ -28,6 +28,7 @@ Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases).
 | Project → Open runtime (*Runtime'ı aç*, F5) | Opens the running project in a separate window |
 | Settings → Connections and tags… (*Ayarlar → Bağlantılar ve tag yönetimi…*, Ctrl+4) | Full connection/tag management: editing, live values, connection import/export |
 | Settings → Server plugins… (*Sunucu eklentileri…*, Ctrl+5) | Server plugins; the bundled `@fuxaw/ads-plugin` is listed here; Ctrl+1 returns to the drawing editor |
+| Settings → Language (*Ayarlar → Dil*) | English / Türkçe: changes the app and the embedded FUXA editor together. On first start the system language decides (Turkish if the system is Turkish, otherwise English). FUXA's own Turkish translation is incomplete, so some editor texts stay in English |
 
 On start a small splash window ("Bileşenler yükleniyor…") is shown; the main window opens when ready. Commands live in the File/Project/Settings menus (there are no extra buttons in the window).
 

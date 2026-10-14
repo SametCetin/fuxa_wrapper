@@ -42,11 +42,14 @@ function install(engineRoot, { requireModule = require, loadDevices = require('.
         ? { ...plugin, current: originalAdsVersion, canRemove: false } : plugin;
     let enabled = true;
     let stateFile;
+    let engineSettings = null; // live engine settings: the description follows the editor language
     const register = () => devices.loadPlugin(manifest.fuxawPlugin.type, enabled ? driverPath : null);
     const descriptor = () => ({ name: manifest.name, module: driverPath,
         type: manifest.fuxawPlugin.type, version: manifest.version, current: enabled ? manifest.version : '',
         group: 'connection-device', dinamic: true, canRemove: enabled, bundled: true,
-        description: 'Uygulamayla gelen ADS sürücüsü · Yerel TwinCAT / ADS-TCP' });
+        description: engineSettings?.language === 'tr'
+            ? 'Uygulamayla gelen ADS sürücüsü · Yerel TwinCAT / ADS-TCP'
+            : 'ADS driver bundled with the app · Local TwinCAT / ADS-TCP' });
     const isBundled = plugin => {
         if (typeof plugin === 'string' && plugin.startsWith('{')) {
             try { plugin = JSON.parse(plugin); } catch { return false; }
@@ -70,6 +73,7 @@ function install(engineRoot, { requireModule = require, loadDevices = require('.
         return type === manifest.fuxawPlugin.type ? descriptor() : originalDescriptor(get.call(this, type));
     };
     plugins.init = async function (...args) {
+        if (args[0] && typeof args[0] === 'object') engineSettings = args[0];
         if (args[0]?.settingsFile) {
             stateFile = path.join(path.dirname(args[0].settingsFile), 'fuxaw-ads-plugin.json');
             if (fs.existsSync(stateFile)) enabled = JSON.parse(fs.readFileSync(stateFile, 'utf8')).enabled !== false;

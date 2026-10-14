@@ -1,7 +1,9 @@
 'use strict';
 
 /** Gömülü editöre servis edilen kopyayı düzeltir; paket dosyalarını değiştirmez.
- *  tagClear: false yalnız transform'u uygular (hedef runtime paketi: sadece ADS formu). */
+ *  tagClear: false yalnız transform'u uygular (hedef runtime paketi: sadece ADS formu).
+ *  transform(source, language): eklenen metinler editör diline uyar; dil her istekte sunucunun
+ *  güncel ayarından okunur (ayar penceresinden ya da uygulamadan değişebilir). */
 function installEditorTagClear(engineDir, transform = source => source, { tagClear = true } = {}) {
   const fs = require('node:fs');
   const path = require('node:path');
@@ -15,8 +17,12 @@ function installEditorTagClear(engineDir, transform = source => source, { tagCle
   const needle = 'onChanged(){if(this.tagFilter.value?.startsWith';
   if (tagClear && source.split(needle).length !== 3) throw new Error('Editör tag seçicisi değişmiş; düzeltme doğrulanmalı.');
   // Her iki tag seçicisinde de boş arama metni eski variableId'yi koruyordu.
-  const patched = transform(!tagClear ? source : source.replaceAll(needle,
-    'onChanged(){if(typeof this.tagFilter.value==="string"&&!this.tagFilter.value.trim())this.variableId=null;if(this.tagFilter.value?.startsWith'));
+  const fixed = !tagClear ? source : source.replaceAll(needle,
+    'onChanged(){if(typeof this.tagFilter.value==="string"&&!this.tagFilter.value.trim())this.variableId=null;if(this.tagFilter.value?.startsWith');
+  const patched = { tr: transform(fixed, 'tr'), en: transform(fixed, 'en') };
+  const language = () => {
+    try { return engineRequire('./runtime').settings?.language === 'tr' ? 'tr' : 'en'; } catch { return 'en'; }
+  };
   const express = engineRequire('express');
   const originalStatic = express.static;
   express.static = function (root, ...args) {
@@ -29,7 +35,7 @@ function installEditorTagClear(engineDir, transform = source => source, { tagCle
         return res.sendFile(path.join(dist, 'index.html'));
       }
       if ((req.method === 'GET' || req.method === 'HEAD') && req.path === '/' + bundles[0]) {
-        return res.type('application/javascript').set('Cache-Control', 'no-store').send(patched);
+        return res.type('application/javascript').set('Cache-Control', 'no-store').send(patched[language()]);
       }
       return fallback(req, res, next);
     };

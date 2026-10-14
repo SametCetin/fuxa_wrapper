@@ -7,7 +7,7 @@ function readDeviceSelection() {
   return select ? select.textContent.trim() : null;
 }
 
-async function openDevicePage(tags, preferredName) {
+async function openDevicePage(tags, preferredName, failMessage) {
   const visible = e => e && e.getClientRects().length;
   for (let i = 0; i < 80; i++) {
     const select = [...document.querySelectorAll('mat-select')].find(visible);
@@ -28,7 +28,7 @@ async function openDevicePage(tags, preferredName) {
     }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw new Error('Bağlantı/tag ekranı açılamadı. Editörü yenileyip tekrar dene.');
+  throw new Error(failMessage);
 }
 
 module.exports = { readDeviceSelection, openDevicePage };

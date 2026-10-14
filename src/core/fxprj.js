@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./model');
 const folder = require('./folder');
+const { t } = require('./i18n');
 
 const FORMAT_VERSION = 2;
 const EXT = '.fxprj';
@@ -72,7 +73,7 @@ function parseJson(text, fileName) {
   try {
     return JSON.parse(text.replace(/^﻿/, ''));
   } catch (e) {
-    throw new FxprjError(`${fileName || 'dosya'} geçerli JSON değil: ${e.message}`);
+    throw new FxprjError(t('file.invalidJson', { file: fileName || t('file.defaultName'), error: e.message }));
   }
 }
 
@@ -85,9 +86,9 @@ function parse(text, fileName = '') {
   const obj = parseJson(text, fileName);
   if (obj && typeof obj === 'object' && 'fxprj' in obj) {
     if (typeof obj.fxprj !== 'number' || obj.fxprj > FORMAT_VERSION) {
-      throw new FxprjError(`${fileName}: .fxprj biçim sürümü ${obj.fxprj} desteklenmiyor (en fazla ${FORMAT_VERSION}). Uygulamayı güncelle.`);
+      throw new FxprjError(t('file.unsupportedVersion', { file: fileName, version: obj.fxprj, max: FORMAT_VERSION }));
     }
-    if (!isFuxaProject(obj.project)) throw new FxprjError(`${fileName}: "project" alanı geçerli bir proje değil`);
+    if (!isFuxaProject(obj.project)) throw new FxprjError(t('file.badProject', { file: fileName }));
     const doc = {
       fxprj: FORMAT_VERSION,
       name: obj.name || obj.project.name || path.basename(fileName, EXT),
@@ -96,7 +97,7 @@ function parse(text, fileName = '') {
       project: obj.project,
     };
     if (obj.fxprj < 2) return { doc: { ...doc, project: migrateAdsPlugin(doc.project) }, imported: true, parts: null };
-    if (!obj.parts || typeof obj.parts !== 'object') throw new FxprjError(`${fileName}: "parts" alanı yok`);
+    if (!obj.parts || typeof obj.parts !== 'object') throw new FxprjError(t('file.noParts', { file: fileName }));
     return { doc, imported: false, parts: obj.parts };
   }
   if (isFuxaProject(obj)) {
@@ -105,7 +106,7 @@ function parse(text, fileName = '') {
     doc.project = migrateAdsPlugin(obj);
     return { doc, imported: true, parts: null };
   }
-  throw new FxprjError(`${fileName}: .fxprj ya da proje JSON dosyası değil`);
+  throw new FxprjError(t('file.unknown', { file: fileName }));
 }
 
 function hashText(text) {
@@ -135,7 +136,7 @@ function read(filePath) {
   try {
     text = fs.readFileSync(filePath, 'utf8');
   } catch (e) {
-    throw new FxprjError(`${filePath} okunamadı: ${e.message}`);
+    throw new FxprjError(t('file.unreadable', { file: filePath, error: e.message }));
   }
   const { doc, imported, parts } = parse(text, filePath);
   if (!parts) return { doc, imported, hash: hashText(text) };
@@ -185,12 +186,12 @@ function folderConflict(filePath) {
   let names;
   try { names = fs.readdirSync(dir); } catch { return null; } // klasör yok: oluşturulur
   const others = names.filter((f) => f.toLowerCase().endsWith(EXT) && f.toLowerCase() !== path.basename(filePath).toLowerCase());
-  if (others.length) return `klasörde başka proje var (${others.join(', ')})`;
+  if (others.length) return t('file.otherProject', { names: others.join(', ') });
   if (!fs.existsSync(filePath)) {
     const used = Object.keys(folder.KINDS).filter((k) => {
       try { return fs.readdirSync(path.join(dir, k)).length > 0; } catch { return false; }
     });
-    if (used.length) return `${used.map((k) => `${k}/`).join(', ')} klasörü dolu`;
+    if (used.length) return t('file.folderUsed', { names: used.map((k) => `${k}/`).join(', ') });
   }
   return null;
 }
