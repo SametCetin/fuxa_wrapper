@@ -37,8 +37,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      # postinstall burada kullanılmaz: npm 10'da lifecycle içinden çalışan `npm install --prefix fuxa-runtime`
+      # kök projeyi yeniden kurup postinstall'ı tekrar tetikliyor (sonsuz döngü). Aynı adımlar tek tek, kilit dosyalarıyla.
       - name: Bağımlılıklar (Electron, gömülü FUXA, ADS eklentisi)
-        run: npm ci
+        shell: bash  # ilk hatada durur (pwsh çok satırlı adımda sadece son komutun çıkış kodunu sayar)
+        run: |
+          npm ci --ignore-scripts
+          node node_modules/electron/install.js
+          npm ci --prefix fuxa-runtime --no-audit --no-fund
+          npm ci --prefix integrations/native-ads --no-audit --no-fund
+          npm run setup:ads
 
       - name: Test
         run: npm test
