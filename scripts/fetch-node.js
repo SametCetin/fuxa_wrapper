@@ -70,7 +70,11 @@ async function main() {
   console.log(`vendor/node hazır (${base})`);
 }
 
-main().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { NODE_VERSION };

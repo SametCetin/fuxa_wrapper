@@ -1,10 +1,9 @@
-# fuxaw yamasını npm ile kurulmuş FUXA 1.3.4'e uygular ya da günceller (internet gerekmez).
+# fuxaw yamasını FUXA 1.3.4'e uygular ya da günceller (internet gerekmez). install-fuxa.ps1 son adımda çağırır.
 #   <FUXA>\fuxaw\        ADS (fuxaw) eklentisi + editör formu (her uygulamada baştan yazılır)
 #   <FUXA>\main.js       başına tek satır eklenir (yedek: main.js.fuxaw-yedek)
-# FUXA klasörü verilmezse 'npm root -g' altında @frangoteam\fuxa aranır.
-# Kullanım: uygula.cmd [-FuxaDir C:\...\node_modules\@frangoteam\fuxa] [-Durdur]
+# Kullanım: apply-patch.ps1 [-FuxaDir C:\ProgramData\fuxa\app\node_modules\@frangoteam\fuxa] [-Durdur]
 param(
-  [string]$FuxaDir,
+  [string]$FuxaDir = 'C:\ProgramData\fuxa\app\node_modules\@frangoteam\fuxa',
   [switch]$Durdur
 )
 $ErrorActionPreference = 'Stop'
@@ -12,13 +11,8 @@ $Kaynak = $PSScriptRoot
 $Satir = "try { require('./fuxaw/hook')(__dirname); } catch (e) { console.error('fuxaw yamasi yuklenemedi: ' + e.message); } // fuxaw-yama"
 
 function FuxaBul {
-  if ($FuxaDir) { return (Resolve-Path $FuxaDir).Path }
-  $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
-  if (-not $npm) { throw "npm bulunamadı. FUXA klasörünü -FuxaDir ile ver." }
-  $root = (& $npm.Source root -g).Trim()
-  $dir = Join-Path $root '@frangoteam\fuxa'
-  if (-not (Test-Path (Join-Path $dir 'main.js'))) { throw "FUXA bulunamadı: $dir. npm install -g @frangoteam/fuxa@1.3.4 ile kur ya da -FuxaDir ver." }
-  return $dir
+  if (-not (Test-Path (Join-Path $FuxaDir 'main.js'))) { throw "FUXA bulunamadı: $FuxaDir. Önce install-fuxa.cmd ile kur ya da -FuxaDir ver." }
+  return (Resolve-Path $FuxaDir).Path
 }
 
 function FuxaSurecleri($dir) {
@@ -31,12 +25,12 @@ $surum = Get-Content (Join-Path $Kaynak 'surum.json') -Raw | ConvertFrom-Json
 $Fuxa = FuxaBul
 $pkg = Get-Content (Join-Path $Fuxa 'package.json') -Raw | ConvertFrom-Json
 if ($pkg.name -ne '@frangoteam/fuxa') { throw "$Fuxa bir FUXA klasörü değil." }
-if ($surum.fuxa -notcontains $pkg.version) { throw "Yama FUXA $($surum.fuxa -join ', ') için; kurulu sürüm $($pkg.version). npm install -g @frangoteam/fuxa@$($surum.fuxa[0])" }
+if ($surum.fuxa -notcontains $pkg.version) { throw "Yama FUXA $($surum.fuxa -join ', ') için; kurulu sürüm $($pkg.version)." }
 Write-Host "FUXA $($pkg.version): $Fuxa"
 
 $procs = FuxaSurecleri $Fuxa
 if ($procs.Count) {
-  if (-not $Durdur) { throw "FUXA çalışıyor ($($procs.Count) süreç). Önce durdur ya da uygula.cmd -Durdur ile çalıştır." }
+  if (-not $Durdur) { throw "FUXA çalışıyor ($($procs.Count) süreç). Önce durdur ya da -Durdur ile çalıştır." }
   foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
   Write-Host 'Çalışan FUXA durduruldu.'; Start-Sleep -Seconds 2
 }
@@ -47,7 +41,7 @@ if ($LASTEXITCODE -ge 8) { throw "Yama dosyaları kopyalanamadı (robocopy kodu 
 Copy-Item (Join-Path $Kaynak 'surum.json') (Join-Path $hedef 'surum.json') -Force
 
 $main = Join-Path $Fuxa 'main.js'
-# Metin olduğu gibi kalır (satır sonları dahil); sadece tek satır eklenir, geri-al aynen çıkarır.
+# Metin olduğu gibi kalır (satır sonları dahil); sadece tek satır eklenir.
 $metin = [IO.File]::ReadAllText($main)
 if ($metin.Contains('// fuxaw-yama')) {
   Write-Host "main.js zaten yamalı; eklenti dosyaları güncellendi ($($surum.paket))."
@@ -59,6 +53,3 @@ if ($metin.Contains('// fuxaw-yama')) {
   [IO.File]::WriteAllText($main, $metin.Insert($i, $Satir + $eol), (New-Object Text.UTF8Encoding $false))
   Write-Host "Yama uygulandı ($($surum.paket)). main.js yedeği: main.js.fuxaw-yedek"
 }
-Write-Host ''
-Write-Host 'FUXA''yı (yeniden) başlat. Editörde bağlantı eklerken: Type → ADS (fuxaw) → Bağlantı yöntemi.'
-Write-Host 'Not: FUXA npm ile güncellenir/yeniden kurulursa yama silinir; uygula.cmd''yi tekrar çalıştır.'
