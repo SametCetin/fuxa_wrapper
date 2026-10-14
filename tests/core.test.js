@@ -166,7 +166,7 @@ test('safeName dosya adına uygun ad üretir', () => {
 });
 
 // ---------------------------------------------------------------- publish
-test('publish klasöre proje JSON + README yazar', () => {
+test('publish tek dosyalık download-<ad>.cmd (proje gömülü) + JSON yazar', () => {
   const dir = tmpdir();
   const file = path.join(dir, 'p1.fxprj');
   const doc = fxprj.newDoc('p1');
@@ -177,29 +177,34 @@ test('publish klasöre proje JSON + README yazar', () => {
   assert.equal(res.dir, path.join(dir, 'publish', 'p1'));
   const out = JSON.parse(fs.readFileSync(path.join(res.dir, 'p1.json'), 'utf8'));
   assert.equal(model.digest(out), model.digest(doc.project));
-  const readme = fs.readFileSync(path.join(res.dir, 'README.md'), 'utf8');
-  assert.match(readme, /Open Project/);
-  assert.match(readme, /download-project\.cmd/);
-  assert.match(readme, /tc3_ads/);
-  const cmd = fs.readFileSync(path.join(res.dir, 'download-project.cmd'), 'utf8');
+  assert.deepEqual(res.files.map((f) => path.basename(f)), ['download-p1.cmd', 'p1.json']);
+  const cmd = fs.readFileSync(path.join(res.dir, 'download-p1.cmd'), 'utf8');
   assert.ok(cmd.startsWith('@echo off\r\n'));
   assert.ok(!/[^\r]\n/.test(cmd), 'cmd CRLF');
   assert.ok(!/[^\x00-\x7f]/.test(cmd), 'cmd ASCII');
-  assert.match(selfcontained.extractPs(cmd), /^##FUXAW-PS\r\n# fuxaw Publish output/);
-  assert.match(selfcontained.extractPs(cmd), /FXW_SCRIPT_DIR/);
-  assert.deepEqual(res.files.map((f) => path.basename(f)), ['p1.json', 'README.md', 'download-project.cmd']);
+  const ps = selfcontained.extractPs(cmd);
+  assert.match(ps, /^##FUXAW-PS\r\n# fuxaw Publish output/);
+  assert.match(ps, /\$ProjectName = 'p1'/);
+  assert.ok(!ps.includes('__PROJECT_'), 'yer tutucu kalmaz');
+  // Gömülü proje, yazılan JSON'un birebir aynısı.
+  const b64 = ps.match(/\$EmbeddedProject = @'\r\n([\s\S]*?)\r\n'@/)[1].replace(/\s/g, '');
+  assert.equal(Buffer.from(b64, 'base64').toString('utf8'), fs.readFileSync(path.join(res.dir, 'p1.json'), 'utf8'));
 });
 
-test('publish eski iki dosyalı download-project.ps1 kalıntısını siler', () => {
+test('publish eski sürümlerin README / download-project kalıntılarını siler', () => {
   const dir = tmpdir();
   const file = path.join(dir, 'p1.fxprj');
   const doc = fxprj.newDoc('p1');
   doc.project = live();
   const out = path.join(dir, 'publish', 'p1');
   fs.mkdirSync(out, { recursive: true });
-  fs.writeFileSync(path.join(out, 'download-project.ps1'), 'eski');
+  for (const f of ['README.md', 'download-project.cmd', 'download-project.ps1']) fs.writeFileSync(path.join(out, f), 'eski');
   assert.equal(publisher.publish(doc, file).ok, true);
-  assert.ok(!fs.existsSync(path.join(out, 'download-project.ps1')));
+  assert.deepEqual(fs.readdirSync(out).sort(), ['download-p1.cmd', 'p1.json']);
+});
+
+test('publish: proje adı betiğe ASCII ve tırnak kaçışlı girer', () => {
+  assert.equal(publisher.psName("Şişe'li Ölçüm"), "Sise''li Olcum");
 });
 
 test('tek dosyalık cmd: PowerShell bölümü işaretten itibaren aynen çıkar, cmd bölümü exit ile biter', () => {

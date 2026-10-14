@@ -1,8 +1,8 @@
 'use strict';
 // Publish: hedef makine için klasöre çıkarma. Ağ üzerinden hiçbir yere gönderilmez.
-//   <klasör>/<ad>/<ad>.json   tam FUXA projesi (hedefte editör ☰ → Open Project)
-//   <klasör>/<ad>/README.md   nereye/nasıl koyulacağı, cihaz/tag özeti
-//   <klasör>/<ad>/download-project.cmd   hedefte projeyi çalışan FUXA'ya yükler (önce yedekler); tek dosya
+//   <klasör>/<ad>/download-<ad>.cmd   müşteriye giden tek dosya: proje içine gömülü; hedefte çalışan FUXA'ya yükler
+//                                     (FUXA kapalıysa başlatır, önce yedekler, runtime ekranını yeniden açar)
+//   <klasör>/<ad>/<ad>.json           tam FUXA projesi (kayıt, git farkı, elle Open Project); göndermek gerekmez
 // Lint hatası varsa yazmaz.
 
 const fs = require('node:fs');
@@ -12,9 +12,24 @@ const lintmod = require('./lint');
 const { safeName } = require('./fxprj');
 const { selfContainedCmd } = require('./target/selfcontained');
 
-const SCRIPT = 'download-project.cmd';
-function scriptText() {
-  const ps = fs.readFileSync(path.join(__dirname, 'target', 'download-project.ps1'), 'utf8');
+// Önceki sürümlerin yazdığı, artık üretilmeyen dosyalar; Publish bunları temizler.
+const STALE = ['README.md', 'download-project.cmd', 'download-project.ps1'];
+
+/** PowerShell betiğine tek tırnaklı metin olarak gömülecek ad: ASCII (5.1 konsolu), ' kaçışlı. */
+function psName(name) {
+  const tr = { ç: 'c', Ç: 'C', ğ: 'g', Ğ: 'G', ı: 'i', İ: 'I', ö: 'o', Ö: 'O', ş: 's', Ş: 'S', ü: 'u', Ü: 'U' };
+  return String(name).replace(/[^\x20-\x7e]/g, (c) => tr[c] || '?').replace(/'/g, "''");
+}
+
+/** download-<ad>.cmd içeriği: src/core/target/download-project.ps1 şablonu + gömülü proje (JSON, base64). */
+function downloadCmd(name, json) {
+  const tpl = fs.readFileSync(path.join(__dirname, 'target', 'download-project.ps1'), 'utf8');
+  for (const k of ['__PROJECT_NAME__', '__PROJECT_JSON__']) {
+    if (tpl.split(k).length !== 2) throw new Error(`download-project.ps1: ${k} tam bir kez geçmeli`);
+  }
+  const ps = tpl
+    .split('__PROJECT_NAME__').join(psName(name))
+    .split('__PROJECT_JSON__').join(Buffer.from(json, 'utf8').toString('base64').match(/.{1,76}/g).join('\n'));
   return selfContainedCmd(ps, 'PROJECT LOAD FAILED.');
 }
 
@@ -36,77 +51,21 @@ function plan(doc, fxprjPath) {
     lint: found,
     errors: found.filter((f) => f.level === lintmod.ERROR).length,
     dir: out,
-    files: out ? [path.join(out, `${name}.json`), path.join(out, 'README.md'), path.join(out, SCRIPT)] : [],
+    files: out ? [path.join(out, `download-${name}.cmd`), path.join(out, `${name}.json`)] : [],
   };
 }
 
-function publish(doc, fxprjPath, now = new Date()) {
+function publish(doc, fxprjPath) {
   const p = plan(doc, fxprjPath);
   if (p.errors) return { ok: false, reason: 'lint', ...p };
   if (!p.dir) return { ok: false, reason: 'nodir', ...p };
   fs.mkdirSync(p.dir, { recursive: true });
-  const [prjFile, readmeFile] = p.files;
-  fs.writeFileSync(prjFile, JSON.stringify(model.cleanProject(doc.project), null, 2) + '\n', 'utf8');
-  fs.writeFileSync(readmeFile, readme(doc, fxprjPath, path.basename(prjFile), p.lint, now), 'utf8');
-  fs.writeFileSync(path.join(p.dir, SCRIPT), scriptText(), 'ascii');
-  fs.rmSync(path.join(p.dir, 'download-project.ps1'), { force: true }); // eski iki dosyalı sürümden kalan
+  const [cmdFile, prjFile] = p.files;
+  const json = JSON.stringify(model.cleanProject(doc.project), null, 2) + '\n';
+  fs.writeFileSync(cmdFile, downloadCmd(doc.name, json), 'ascii');
+  fs.writeFileSync(prjFile, json, 'utf8');
+  for (const f of STALE) fs.rmSync(path.join(p.dir, f), { force: true });
   return { ok: true, ...p };
 }
 
-function stamp(d) {
-  const z = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
-}
-
-function readme(doc, fxprjPath, fname, found, now) {
-  const items = model.splitProject(doc.project);
-  const names = (kind) => model.itemsOfKind(items, kind).map(([, v]) => v.name || '').sort();
-  const devs = model.itemsOfKind(items, 'device').map(([, v]) => v).sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  const warns = found.filter((f) => f.level !== lintmod.ERROR);
-  const lines = [
-    `# ${doc.name} – FUXA projesi (hedef makine için)`,
-    '',
-    `- Üretildi: ${stamp(now)} (fuxaw → Publish)`,
-    `- Kaynak: \`${fxprjPath || '-'}\``,
-    `- FUXA sürümü: ${doc.fuxaVersion || '?'}`,
-    `- Lint: ${found.length ? `${warns.length} uyarı, hata yok` : 'temiz'}`,
-    '',
-    '## Dosyalar',
-    '',
-    `- \`${fname}\`: tam proje (cihazlar, tag'ler, ekranlar, script'ler).`,
-    '- `download-project.cmd`: projeyi hedefte çalışan FUXA\'ya yükler (tek dosya, yanında başka dosya gerekmez).',
-    '',
-    '## Hedef makineye yükleme',
-    '',
-    'Hedefte FUXA, fuxaw kurulum paketindeki `install-fuxa.cmd` ile kurulmuş olmalı (`C:\\ProgramData\\fuxa`).',
-    '',
-    `1. Bu klasörü hedef makineye kopyala, ör. \`C:\\fuxa_publish\\${safeName(doc.name)}\\\`.`,
-    '2. FUXA çalışmıyorsa başlat: `C:\\ProgramData\\fuxa\\start-fuxa.cmd`.',
-    '3. `download-project.cmd`\'ye çift tıkla. Önce FUXA\'daki mevcut proje `C:\\ProgramData\\fuxa\\data\\backups\\` altına yedeklenir,',
-    `   sonra \`${fname}\` yüklenir. Bağlantılar hemen kurulur; FUXA'yı yeniden başlatmak gerekmez.`,
-    '4. Açık runtime sayfalarını (`http://127.0.0.1:1881/home`) yenile.',
-    '',
-    'Geri almak için: `download-project.cmd -Project <yedek json>` (betik bittiğinde tam komutu yazar).',
-    '',
-    `Elle yüklemek istersen: FUXA editörü (\`http://127.0.0.1:1881/editor\`) → ☰ → *Save Project As...* (yedek), sonra ☰ → *Open Project* → \`${fname}\`.`,
-    '',
-    '## Kontrol et',
-    '',
-    'Cihaz bağlantı ayarları dosyada nasılsa hedefe öyle gider; hedefteki PLC\'ye uyduğunu kontrol et:',
-    '',
-    '| Cihaz | Tip | Tag sayısı |',
-    '| ----- | --- | ---------- |',
-    ...devs.map((d) => `| ${d.name || ''} | ${d.type || ''} | ${Object.keys(d.tags || {}).length} |`),
-    '',
-    `Ekranlar: ${names('view').join(', ') || '-'}`,
-    '',
-    `Script'ler: ${names('script').join(', ') || '-'}`,
-    '',
-  ];
-  if (warns.length) {
-    lines.push('## Lint uyarıları', '', ...warns.map((w) => `- ${w.where}: ${w.message}`), '');
-  }
-  return lines.join('\n');
-}
-
-module.exports = { resolveDir, plan, publish, readme };
+module.exports = { resolveDir, plan, publish, psName };

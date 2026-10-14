@@ -1,37 +1,61 @@
-# fuxaw Publish output: loads the project JSON in this folder into the FUXA running on this machine.
-# First backs up the current FUXA project to <InstallDir>\data\backups\ (or to backups\ next to this script).
-# Same as editor menu -> Open Project (POST /api/project). Connections start right away.
-# Usage: download-project.cmd [-Project <project.json>] [-Port 1881] [-InstallDir C:\ProgramData\fuxa] [-Yes]
-#   To roll back: download-project.cmd -Project <backup json>
+# fuxaw Publish output (download-<project>.cmd): loads the project embedded in this file into FUXA on this
+# machine (installed by install-fuxa). Needs no other file. Starts FUXA in the background if it is not running.
+# First backs up the current FUXA project to <InstallDir>\data\backups\ (or to backups\ next to this file).
+# Same as editor menu -> Open Project (POST /api/project); connections start right away. Then shows the runtime
+# view with the new project (the "Start FUXA" app window is reopened; -NoView skips this).
+# Usage: download-<project>.cmd [-Project <project.json>] [-Port 1881] [-InstallDir C:\ProgramData\fuxa] [-Yes] [-NoView]
+#   -Project loads that JSON instead of the embedded project, e.g. to roll back to a backup.
+#
+# TEMPLATE: src/core/publish.js fills in the project name and the project JSON (base64) placeholders below.
 # Messages are ASCII only: Windows PowerShell 5.1 consoles garble UTF-8.
 param(
   [string]$Project,
   [int]$Port = 1881,
   [string]$InstallDir = (Join-Path $env:ProgramData 'fuxa'),
-  [switch]$Yes
+  [switch]$Yes,
+  [switch]$NoView
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $Url = "http://127.0.0.1:$Port"
-# Folder of download-project.cmd (the .cmd extracts this script to %TEMP%, so $PSScriptRoot is not it).
+# Folder of this .cmd (the .cmd extracts this script to %TEMP%, so $PSScriptRoot is not it).
 $Here = if ($env:FXW_SCRIPT_DIR) { $env:FXW_SCRIPT_DIR.TrimEnd('\') } else { $PSScriptRoot }
+$Self = if ($env:FXW_SELF) { Split-Path $env:FXW_SELF -Leaf } else { 'download-project.cmd' }
 
-if (-not $Project) {
-  $candidates = @(Get-ChildItem $Here -Filter *.json -File)
-  if ($candidates.Count -ne 1) { throw "Expected exactly one project JSON in this folder (found $($candidates.Count)). Pass it with -Project." }
-  $Project = $candidates[0].FullName
+$ProjectName = '__PROJECT_NAME__'
+$EmbeddedProject = @'
+__PROJECT_JSON__
+'@
+if ($Project) {
+  $Project = (Resolve-Path $Project).Path
+  $source = $Project
+  $bytes = [IO.File]::ReadAllBytes($Project)
+} else {
+  if ($ProjectName.StartsWith('__')) { throw 'This is the source template. Use the download-<project>.cmd written by fuxaw Publish.' }
+  $source = "$ProjectName (embedded in $Self)"
+  $bytes = [Convert]::FromBase64String(($EmbeddedProject -replace '\s', ''))
 }
-$Project = (Resolve-Path $Project).Path
-$bytes = [IO.File]::ReadAllBytes($Project)
 $prj = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
-if (-not $prj.hmi) { throw "$Project is not a FUXA project." }
+if (-not $prj.hmi) { throw "$source is not a FUXA project." }
 
-try { Invoke-WebRequest "$Url/api/settings" -UseBasicParsing -TimeoutSec 5 | Out-Null }
-catch { throw "Cannot reach FUXA at $Url. Start it first ($(Join-Path $InstallDir 'start-fuxa.cmd'))." }
+function Test-Fuxa { try { Invoke-WebRequest "$Url/api/settings" -UseBasicParsing -TimeoutSec 2 | Out-Null; $true } catch { $false } }
+if (-not (Test-Fuxa)) {
+  # Same as "Start FUXA": node in the background, no window.
+  $node = Join-Path $InstallDir 'node\node.exe'
+  $fuxaMain = Join-Path $InstallDir 'app\node_modules\@frangoteam\fuxa\main.js'
+  if (-not ((Test-Path $node) -and (Test-Path $fuxaMain))) { throw "FUXA is not running at $Url and no install was found in $InstallDir. Install it with install-fuxa.cmd first." }
+  Write-Host 'Starting FUXA...'
+  $env:Path = (Join-Path $InstallDir 'node') + ';' + $env:Path
+  $data = Join-Path $InstallDir 'data'
+  Start-Process -FilePath $node -WorkingDirectory $data -WindowStyle Hidden `
+    -ArgumentList "`"$fuxaMain`"", '--port', "$Port", '--userDir', "`"$data`""
+  for ($i = 0; $i -lt 60 -and -not (Test-Fuxa); $i++) { Start-Sleep -Seconds 1 }
+  if (-not (Test-Fuxa)) { throw "FUXA did not start at $Url. See $data\_logs\fuxa.log." }
+}
 
 $views = @($prj.hmi.views | ForEach-Object { $_.name })
 $devices = @($prj.devices.PSObject.Properties | ForEach-Object { $_.Value })
-Write-Host "Project:  $Project"
+Write-Host "Project:  $source"
 Write-Host "Target:   $Url"
 Write-Host "Views:    $($views -join ', ')"
 Write-Host "Devices:  $(($devices | ForEach-Object { "$($_.name) ($($_.type))" }) -join ', ')"
@@ -58,7 +82,21 @@ Invoke-WebRequest "$Url/api/project" -Method Post -ContentType 'application/json
 
 $loaded = Invoke-RestMethod "$Url/api/project" -UseBasicParsing
 $loadedViews = @($loaded.hmi.views | ForEach-Object { $_.name })
-if (($loadedViews -join '|') -ne ($views -join '|')) { throw "Could not verify the load: the views in FUXA do not match. To roll back: download-project.cmd -Project `"$backup`"" }
+if (($loadedViews -join '|') -ne ($views -join '|')) { throw "Could not verify the load: the views in FUXA do not match. To roll back: $Self -Project `"$backup`"" }
 Write-Host ''
-Write-Host "Project loaded. Refresh any open runtime pages ($Url/home)."
-Write-Host "To roll back: download-project.cmd -Project `"$backup`""
+Write-Host 'Project loaded.'
+Write-Host "To roll back: $Self -Project `"$backup`""
+
+# Show the runtime view with the new project: close the "Start FUXA" app window (Edge with the browser\ profile)
+# and let start-fuxa.cmd open it again. Other browser tabs on the runtime view must be refreshed by hand.
+$launcher = Join-Path $InstallDir 'start-fuxa.cmd'
+if ($NoView -or -not (Test-Path $launcher)) {
+  Write-Host "Refresh any open runtime pages ($Url/home)."
+  return
+}
+$profileDir = Join-Path $InstallDir 'browser'
+$view = @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profileDir) })
+foreach ($p in $view) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+if ($view.Count) { Start-Sleep -Seconds 1 }
+Start-Process -FilePath $launcher -WorkingDirectory $InstallDir -WindowStyle Minimized
+Write-Host 'Runtime view opened with the new project.'

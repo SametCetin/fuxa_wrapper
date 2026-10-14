@@ -269,7 +269,7 @@ async function runPublish() {
   openModal('Publish tamamlandı', [
     el('p', { class: 'ok', text: 'Hedef makine için klasör hazır.' }),
     el('dl', { class: 'kv' }, el('dt', { text: 'Klasör' }), el('dd', { text: res.dir })),
-    el('p', { class: 'muted', text: 'Hedef makinede ne yapılacağı klasördeki README.md\'de yazıyor.' }),
+    el('p', { class: 'muted', text: `Hedef makineye sadece ${res.files[0].split(/[\\/]/).pop()} dosyasını gönder; çift tıklanınca projeyi oradaki sunucuya yükler (önce yedek alır). ${res.files[1].split(/[\\/]/).pop()} kayıt içindir, göndermek gerekmez.` }),
   ], [
     { label: 'Klasörü aç', onclick: () => window.fxw.reveal(res.dir) },
     { label: 'Tamam', primary: true, onclick: closeModal },

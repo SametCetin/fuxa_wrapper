@@ -47,9 +47,8 @@ Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüs
 
 ```
 <publish klasörü>/<ad>/
-├─ <ad>.json              tam proje
-├─ README.md              hedef makineye yükleme adımları, cihaz/tag özeti
-└─ download-project.cmd   hedefte çift tıklanır: FUXA'daki projeyi yedekler, bunu yükler (tek dosya)
+├─ download-<ad>.cmd   hedefe gönderilen tek dosya (proje içine gömülü): çift tıklanınca FUXA'daki projeyi yedekler, bunu yükler
+└─ <ad>.json           tam proje (kayıt, git farkı, elle Open Project); göndermek gerekmez
 ```
 
 Hedefte FUXA, kurulum paketindeki `install-fuxa.cmd` ile kurulmuş olmalı (aşağıda "Hedef makine").
@@ -125,4 +124,4 @@ fuxa_wrapper/
 
 Windows yerel ADS köprüsü bu reponun `integrations/native-ads/` klasöründe bağımsız bir eklentidir. Orijinal editör paketinin dosyaları değiştirilmez; eklenti uygulamayla birlikte gelir ve başlangıçta çevrimdışı yüklenir. Kullanım ve test komutları: [Yerel ADS bağlantısı](docs/native-ads.md).
 
-**Hedef makine:** `npm run dist:installer` paketindeki `install-fuxa.cmd` Node.js'i ve FUXA 1.3.4'ü internetten `C:\ProgramData\fuxa` altına kurar, ADS (fuxaw) sürücüsünü ve editör formunu yamayla ekler, FUXA'yı başlatır (sonraki açılışlarda `start-fuxa.cmd`). `uninstall-fuxa.cmd` kaldırır, projeyi (`data\`) korur. Proje, Publish klasöründeki `download-project.cmd` ile yüklenir. Ayrıntı: [installer/README.md](installer/README.md).
+**Hedef makine:** `npm run dist:installer` paketindeki `install-fuxa.cmd` Node.js'i ve FUXA 1.3.4'ü internetten `C:\ProgramData\fuxa` altına kurar, ADS (fuxaw) sürücüsünü ve editör formunu yamayla ekler, FUXA'yı başlatır (sonraki açılışlarda `start-fuxa.cmd`). `uninstall-fuxa.cmd` kaldırır, projeyi (`data\`) korur. Proje, Publish'in ürettiği tek dosyalık `download-<proje>.cmd` ile yüklenir. Ayrıntı: [installer/README.md](installer/README.md).
