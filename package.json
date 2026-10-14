@@ -1,7 +1,7 @@
 {
   "name": "fuxaw",
   "productName": "fuxaw",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "FUXA projeleri için masaüstü uygulaması (.fxprj)",
   "main": "src/main/main.js",
   "author": "Samet Cetin",
