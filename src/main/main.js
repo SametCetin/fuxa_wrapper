@@ -23,6 +23,8 @@ const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
 
 const APP_NAME = 'fuxaw';
+// Dört parçalı sürüm (ör. 27.1.10.26); app.getVersion() sadece semver kısmını (27.1.10) verir. Bkz. scripts/set-version.js.
+const APP_VERSION = require('../../package.json').fullVersion || app.getVersion();
 const POLL_MS = 1500;
 
 let win = null;
@@ -879,7 +881,7 @@ function buildMenu() {
         { type: 'separator' },
         {
           label: `${APP_NAME} hakkında`,
-          click: () => message('info', `${APP_NAME} ${app.getVersion()}`,
+          click: () => message('info', `${APP_NAME} ${APP_VERSION}`,
             'HMI proje tasarımı için masaüstü uygulaması.'),
         },
       ],

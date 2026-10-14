@@ -1,6 +1,6 @@
 # AGENTS.md – fuxaw (FUXA projeleri için masaüstü uygulaması) geliştirme kuralları
 
-Bu dosya, bu klasörde çalışan AI asistanlar (Claude Code vb.) ve geliştiriciler için yazıldı. Kullanım ve genel bakış: [README.md](README.md).
+Bu dosya, bu klasörde çalışan AI asistanlar (Claude Code vb.) ve geliştiriciler için yazıldı. Kullanım ve genel bakış: [README.md](README.md) (İngilizce, GitHub'da varsayılan) ve [README.tr.md](README.tr.md) (Türkçe); ikisi birlikte güncellenir.
 
 Kullanıcıyla Türkçe konuş.
 
@@ -56,7 +56,7 @@ npm run dist:installer   # dist/installer/fuxaw-install-*: hedef kurulumu, insta
 npm run dist         # kurulum paketi (Windows'ta NSIS)
 ```
 
-**GitHub Release (kullanıcı kararı, 2026-10-14):** `.github/workflows/release.yml`, `main` dalındaki bir commit'e `vX.Y.Z` etiketi gönderilince Windows'ta çalışır: etiketin `main`'de ve `package.json` sürümüyle aynı olduğunu kontrol eder, Node 22 ile `npm ci` (npm 10 kurulum betiklerini çalıştırır; gömülü FUXA'nın sqlite3'ü buna bağlı), `npm test`, `dist` (`--publish never`), `dist:fast`, `dist:installer`; release'e `fuxaw-setup-X.Y.Z.exe`, `fuxaw-win-x64-X.Y.Z.zip`, `install-fuxa.cmd`, `uninstall-fuxa.cmd` eklenir, notlar PR'lardan üretilir. Akış: `main`'de `npm version <patch|minor|major>` → `git push --follow-tags`. EXE'ler imzasız; repo public olduğu için release herkese açık.
+**GitHub Release (kullanıcı kararı, 2026-10-14):** `.github/workflows/release.yml`, `main` dalındaki bir commit'e `V<sürüm>` etiketi gönderilince Windows'ta çalışır: etiketin `main`'de ve `package.json` `fullVersion`'ı ile aynı olduğunu kontrol eder, Node 22 ile bağımlılıkları tek tek kurar (`npm ci --ignore-scripts` + Electron, `fuxa-runtime`, `native-ads` kilit dosyalarıyla; npm 10'da lifecycle içinden `npm install --prefix` kök projeyi yeniden kurup `postinstall` döngüsüne giriyordu — v0.3.0 bu yüzden düştü; npm 10 bağımlılık betiklerini çalıştırır, gömülü FUXA'nın sqlite3'ü buna bağlı), `npm test`, `dist` (`--publish never`), `dist:fast`, `dist:installer`; release'e `fuxaw-setup-<sürüm>.exe`, `fuxaw-win-x64-<sürüm>.zip`, `install-fuxa.cmd`, `uninstall-fuxa.cmd` eklenir, notlar PR'lardan üretilir. **Sürüm dört parçalıdır** (kullanıcı kararı, Haffner biçimi; ör. `27.1.10.26`, etiket `V27.1.10.26`): `package.json` `fullVersion` = tam sürüm (Hakkında penceresi, dosya adları, etiket), `version` = ilk üç parça (npm/Electron semver zorunlu), `build.buildVersion` = tam sürüm (Windows dosya sürümü). Elle değil `npm run version:set -- <sürüm>` (`scripts/set-version.js`) ile değiştirilir; `npm version` kullanılmaz. Akış: `npm run version:set -- 27.1.10.27` → commit → `git tag V27.1.10.27` → `git push --follow-tags`. EXE'ler imzasız; repo public olduğu için release herkese açık.
 
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
