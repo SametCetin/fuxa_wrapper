@@ -2,7 +2,7 @@
 #   <InstallDir>\node\    Node.js (from nodejs.org, SHA256 verified; system PATH is not touched)
 #   <InstallDir>\app\     FUXA (from npm, over the internet) + fuxaw patch in app\...\fuxa\fuxaw\
 #   <InstallDir>\data\    project, settings, databases, logs, backups (FUXA --userDir); kept on reinstall/uninstall
-#   <InstallDir>\start-fuxa.cmd
+#   <InstallDir>\start-fuxa.cmd   starts FUXA if needed and opens the editor (+ start-fuxa.ps1, fuxa-server.cmd)
 # Safe to run again: whatever is already installed in the right version is skipped, the patch is always refreshed.
 # Usage: install-fuxa.cmd [-InstallDir C:\ProgramData\fuxa] [-Port 1881] [-Stop] [-NoStart]
 #
@@ -129,63 +129,131 @@ try {
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# 4. Launcher. Project and data live in data\; FUXA opens the same project wherever it is started from.
+# 4. Launchers. Project and data live in data\; FUXA opens the same project wherever it is started from.
+#    start-fuxa.cmd   what users run (shortcuts): starts FUXA in the background (no window) if it is not running,
+#                     then shows the runtime view (/home) in an Edge app window (own profile in browser\, so an
+#                     already open window is brought back instead of opening another one).
+#                     start-fuxa.cmd -Page editor opens the editor in the default browser instead. Logic in start-fuxa.ps1.
+#    stop-fuxa.cmd    stops FUXA (Start menu "Stop FUXA"). Logic in stop-fuxa.ps1.
+#    fuxa-server.cmd  runs FUXA with a visible console, for troubleshooting (closing the window stops FUXA).
+#    Logs are in data\_logs\ (fuxa.log, api.log) either way.
 New-Item -ItemType Directory -Force $Data | Out-Null
-$launcher = Join-Path $InstallDir 'start-fuxa.cmd'
+$server = Join-Path $InstallDir 'fuxa-server.cmd'
 @"
 @echo off
-rem fuxaw install: starts FUXA. Editor: http://127.0.0.1:$Port/editor
+rem fuxaw install: FUXA with a visible console, for troubleshooting (closing this window stops FUXA).
+rem Normally use start-fuxa.cmd, which runs FUXA in the background. Editor: http://127.0.0.1:$Port/editor
+title FUXA server (port $Port)
 set "PATH=%~dp0node;%PATH%"
 cd /d "%~dp0data"
 "%~dp0node\node.exe" "%~dp0app\node_modules\@frangoteam\fuxa\main.js" --port $Port --userDir "%~dp0data"
-"@ -replace "`r?`n", "`r`n" | Set-Content $launcher -Encoding Ascii
-# open-editor.ps1: what the "FUXA Editor" shortcut runs. Starts FUXA (minimized) if it is not running, then opens the editor.
-$openEditor = Join-Path $InstallDir 'open-editor.ps1'
+"@ -replace "`r?`n", "`r`n" | Set-Content $server -Encoding Ascii
 @'
-# fuxaw install: opens the FUXA editor; starts FUXA (start-fuxa.cmd, minimized window) first if it is not running.
+# fuxaw install: starts FUXA in the background (no window) if it is not running, then
+#   -Page view   (default) shows the runtime view in an Edge app window; if that window is already open it is
+#                restored and brought to the front instead of opening another one
+#   -Page editor opens the editor in the default browser
+param([ValidateSet('view', 'editor')][string]$Page = 'view')
 $url = 'http://127.0.0.1:__PORT__'
 function Test-Fuxa { try { Invoke-WebRequest "$url/api/settings" -UseBasicParsing -TimeoutSec 2 | Out-Null; $true } catch { $false } }
 if (-not (Test-Fuxa)) {
-  Start-Process -FilePath (Join-Path $PSScriptRoot 'start-fuxa.cmd') -WorkingDirectory $PSScriptRoot -WindowStyle Minimized
+  $env:Path = (Join-Path $PSScriptRoot 'node') + ';' + $env:Path
+  $data = Join-Path $PSScriptRoot 'data'
+  $main = Join-Path $PSScriptRoot 'app\node_modules\@frangoteam\fuxa\main.js'
+  Start-Process -FilePath (Join-Path $PSScriptRoot 'node\node.exe') -WorkingDirectory $data -WindowStyle Hidden `
+    -ArgumentList "`"$main`"", '--port', '__PORT__', '--userDir', "`"$data`""
   for ($i = 0; $i -lt 60 -and -not (Test-Fuxa); $i++) { Start-Sleep -Seconds 1 }
 }
-Start-Process "$url/editor"
-'@.Replace('__PORT__', "$Port") -replace "`r?`n", "`r`n" | Set-Content $openEditor -Encoding Ascii
-Write-Host "[4/5] Launchers written: $launcher, $openEditor"
+if ($Page -eq 'editor') { Start-Process "$url/editor"; return }
 
-# 5. Shortcuts (current user, no admin): editor in the Start menu and on the desktop, install folder in the Start menu.
-#    uninstall-fuxa.ps1 removes the same names.
+$edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") |
+  Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $edge) { Start-Process "$url/home"; return }  # no Edge: default browser
+# The app window uses its own Edge profile, so its browser process can be found by command line.
+$profileDir = Join-Path $PSScriptRoot 'browser'
+$open = Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object {
+    $_.CommandLine -and $_.CommandLine.Contains($profileDir) -and -not $_.CommandLine.Contains('--type=') } |
+  ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue } |
+  Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+if ($open) {
+  Add-Type -Namespace Fuxaw -Name Win -MemberDefinition @"
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+"@
+  $h = $open.MainWindowHandle
+  if ([Fuxaw.Win]::IsIconic($h)) { [void][Fuxaw.Win]::ShowWindow($h, 9) }  # 9 = SW_RESTORE
+  [void][Fuxaw.Win]::SetForegroundWindow($h)
+  return
+}
+Start-Process -FilePath $edge -ArgumentList "--app=$url/home", "--user-data-dir=`"$profileDir`"", '--no-first-run', '--no-default-browser-check'
+'@.Replace('__PORT__', "$Port") -replace "`r?`n", "`r`n" | Set-Content (Join-Path $InstallDir 'start-fuxa.ps1') -Encoding Ascii
+@'
+# fuxaw install: stops FUXA started from this folder (node.exe under this folder).
+$procs = @(Get-CimInstance Win32_Process | Where-Object {
+    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($PSScriptRoot + '\', [StringComparison]::OrdinalIgnoreCase) })
+foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+'@ -replace "`r?`n", "`r`n" | Set-Content (Join-Path $InstallDir 'stop-fuxa.ps1') -Encoding Ascii
+$launcher = Join-Path $InstallDir 'start-fuxa.cmd'
+$stopper = Join-Path $InstallDir 'stop-fuxa.cmd'
+foreach ($pair in @(@($launcher, 'start-fuxa.ps1', 'starts FUXA in the background if needed and shows the runtime view (-Page editor: the editor).'),
+                    @($stopper, 'stop-fuxa.ps1', 'stops FUXA.'))) {
+  @"
+@echo off
+rem fuxaw install: $($pair[2])
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0$($pair[1])" %*
+"@ -replace "`r?`n", "`r`n" | Set-Content $pair[0] -Encoding Ascii
+}
+Remove-Item (Join-Path $InstallDir 'open-editor.ps1') -ErrorAction SilentlyContinue  # earlier version
+Write-Host "[4/5] Launchers written: $launcher, $stopper"
+
+# 5. Shortcuts (current user, no admin): "Start FUXA" (runtime view) in the Start menu and on the desktop;
+#    "FUXA Editor", "Stop FUXA" and "FUXA Project Folder" in the Start menu only. uninstall-fuxa.ps1 removes the same names.
 $shell = New-Object -ComObject WScript.Shell
 $menuDir = Join-Path ([Environment]::GetFolderPath('Programs')) 'FUXA'
 New-Item -ItemType Directory -Force $menuDir | Out-Null
-foreach ($dir in $menuDir, [Environment]::GetFolderPath('Desktop')) {
-  Remove-Item (Join-Path $dir 'FUXA Editor.url') -ErrorAction SilentlyContinue  # earlier version of this shortcut
-  $lnk = $shell.CreateShortcut((Join-Path $dir 'FUXA Editor.lnk'))
-  $lnk.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$openEditor`""
+# FUXA's own icon (only 32x32 and 16x16 inside, so it looks a little soft at the 48px desktop size).
+$icon = Join-Path $Fuxa 'dist\favicon.ico'
+$desktop = [Environment]::GetFolderPath('Desktop')
+foreach ($old in 'FUXA Editor.url', 'FUXA Editor.lnk') { Remove-Item (Join-Path $desktop $old) -ErrorAction SilentlyContinue }  # earlier versions
+Remove-Item (Join-Path $menuDir 'FUXA Editor.url') -ErrorAction SilentlyContinue
+foreach ($s in @(@($menuDir, 'Start FUXA', '', "Start FUXA and show the runtime view (http://127.0.0.1:$Port/home)"),
+                 @($desktop, 'Start FUXA', '', "Start FUXA and show the runtime view (http://127.0.0.1:$Port/home)"),
+                 @($menuDir, 'FUXA Editor', '-Page editor', "Start FUXA if needed and open the editor (http://127.0.0.1:$Port/editor)"))) {
+  $lnk = $shell.CreateShortcut((Join-Path $s[0] ($s[1] + '.lnk')))
+  $lnk.TargetPath = $launcher
+  $lnk.Arguments = $s[2]
   $lnk.WorkingDirectory = $InstallDir
   $lnk.WindowStyle = 7
-  $lnk.Description = "FUXA editor (http://127.0.0.1:$Port/editor); starts FUXA if needed"
+  if (Test-Path $icon) { $lnk.IconLocation = "$icon,0" }
+  $lnk.Description = $s[3]
   $lnk.Save()
 }
+$lnk = $shell.CreateShortcut((Join-Path $menuDir 'Stop FUXA.lnk'))
+$lnk.TargetPath = $stopper
+$lnk.WorkingDirectory = $InstallDir
+$lnk.WindowStyle = 7
+$lnk.Description = 'Stop FUXA (it runs in the background without a window)'
+$lnk.Save()
 $lnk = $shell.CreateShortcut((Join-Path $menuDir 'FUXA Project Folder.lnk'))
 $lnk.TargetPath = $InstallDir
 $lnk.Description = 'FUXA install folder (data\ = project, settings, logs, backups)'
 $lnk.Save()
-Write-Host "[5/5] Shortcuts: FUXA Editor (Start menu, desktop), FUXA Project Folder (Start menu)"
+Write-Host "[5/5] Shortcuts: Start FUXA (Start menu, desktop); FUXA Editor, Stop FUXA, FUXA Project Folder (Start menu)"
 
 Write-Host ''
 if ($NoStart) {
-  Write-Host "Install complete. To start FUXA: $launcher"
+  Write-Host "Install complete. To start FUXA use the 'Start FUXA' shortcut or $launcher"
   return
 }
-Start-Process -FilePath $launcher -WorkingDirectory $InstallDir
+# Right after install the project is empty, so open the editor rather than the runtime view.
+Start-Process -FilePath $launcher -ArgumentList '-Page', 'editor' -WorkingDirectory $InstallDir
 $url = "http://127.0.0.1:$Port"
 $ready = $false
 for ($i = 0; $i -lt 60 -and -not $ready; $i++) {
   Start-Sleep -Seconds 1
   try { Invoke-WebRequest "$url/api/settings" -UseBasicParsing -TimeoutSec 2 | Out-Null; $ready = $true } catch {}
 }
-if (-not $ready) { throw "FUXA was started but $url does not respond. Check the FUXA window for errors." }
-Write-Host "Install complete. FUXA is running: $url/editor"
-Write-Host "Next time start it with: $launcher"
+if (-not $ready) { throw "FUXA was started but $url does not respond. See $Data\_logs\fuxa.log, or run $server to see its console." }
+Write-Host "Install complete. FUXA is running in the background: $url/editor"
+Write-Host "Start it with the 'Start FUXA' shortcut (desktop, Start menu), stop it with 'Stop FUXA' (Start menu)."

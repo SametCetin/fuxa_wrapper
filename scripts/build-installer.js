@@ -72,8 +72,11 @@ function main() {
 
   const name = `fuxaw-install-${engines[0]}-v${app.version}`;
   const out = path.join(OUT_BASE, name);
-  fs.rmSync(out, { recursive: true, force: true });
+  // Klasör silinmez, dosyaların üzerine yazılır: klasör Gezgin'de ya da bir konsolda açıkken de üretilebilsin.
   fs.mkdirSync(out, { recursive: true });
+  for (const f of fs.readdirSync(out)) {
+    if (!['install-fuxa.cmd', 'uninstall-fuxa.cmd', 'README.md'].includes(f)) fs.rmSync(path.join(out, f), { recursive: true, force: true });
+  }
 
   const info = { package: name, fuxa: engines[0], node: NODE_VERSION, adsPlugin: plugin.version };
   const install = fill(fs.readFileSync(path.join(ROOT, 'installer', 'install-fuxa.ps1'), 'utf8'), {
