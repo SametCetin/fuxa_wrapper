@@ -1,10 +1,11 @@
 {
   "name": "fuxaw",
   "productName": "fuxaw",
-  "version": "0.3.1",
+  "version": "27.1.10",
+  "fullVersion": "27.1.10.26",
   "description": "FUXA projeleri için masaüstü uygulaması (.fxprj)",
   "main": "src/main/main.js",
-  "author": "Samet Cetin",
+  "author": "Samet Çetin",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -20,19 +21,25 @@
     "setup:ads": "node integrations/native-ads/prepare.js",
     "install:ads": "npm install --prefix integrations/native-ads --no-audit --no-fund && npm run setup:ads",
     "test:ads": "node --test \"integrations/native-ads/adsclient/native/test/*.test.js\"",
-    "probe:ads": "node integrations/native-ads/probe.js"
+    "probe:ads": "node integrations/native-ads/probe.js",
+    "version:set": "node scripts/set-version.js"
   },
   "devDependencies": {
     "electron": "^44.5.1",
     "electron-builder": "^26.0.12"
   },
   "build": {
+    "buildVersion": "27.1.10.26",
     "appId": "org.sct.fuxaw",
     "productName": "fuxaw",
     "electronDist": "node_modules/electron/dist",
     "files": [
       "src/**/*",
       "package.json"
+    ],
+    "extraFiles": [
+      { "from": "LICENSE", "to": "LICENSE.txt" },
+      { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" }
     ],
     "extraResources": [
       {

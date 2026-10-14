@@ -70,7 +70,7 @@ function main() {
   const engines = plugin.fuxawPlugin.engineVersions;
   if (engines.length !== 1) throw new Error(`Tek FUXA sürümü bekleniyordu: ${engines.join(', ')}`);
 
-  const name = `fuxaw-install-${engines[0]}-v${app.version}`;
+  const name = `fuxaw-install-${engines[0]}-v${app.fullVersion || app.version}`;
   const out = path.join(OUT_BASE, name);
   // Klasör silinmez, dosyaların üzerine yazılır: klasör Gezgin'de ya da bir konsolda açıkken de üretilebilsin.
   fs.mkdirSync(out, { recursive: true });

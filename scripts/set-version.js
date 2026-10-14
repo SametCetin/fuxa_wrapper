@@ -1,0 +1,47 @@
+'use strict';
+// Sürümü ayarlar: node scripts/set-version.js 27.1.10.26   (npm run version:set -- 27.1.10.26; başta V/v olabilir)
+// fuxaw sürümü dört parçalıdır (Haffner biçimi, ör. 27.1.10.26), etiketi V<sürüm>. npm ve Electron üç parçalı semver
+// istediği için package.json'da:
+//   fullVersion          27.1.10.26   uygulamanın gösterdiği sürüm, dosya adları, release etiketi (V27.1.10.26)
+//   version              27.1.10      ilk üç parça (npm/Electron)
+//   build.buildVersion   27.1.10.26   Windows dosya sürümü
+// package-lock.json'daki kök sürüm de güncellenir. Sonra: commit, git tag V<sürüm>, git push --follow-tags.
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.resolve(__dirname, '..');
+const arg = (process.argv[2] || '').replace(/^[vV]/, '');
+if (!/^\d+\.\d+\.\d+\.\d+$/.test(arg)) {
+  console.error('Kullanım: node scripts/set-version.js 27.1.10.26   (dört sayısal parça)');
+  process.exit(1);
+}
+const semver = arg.split('.').slice(0, 3).join('.');
+
+// Sadece ilgili satırlar değiştirilir; dosyanın geri kalan biçimi korunur.
+function edit(file, fn) {
+  const p = path.join(ROOT, file);
+  const before = fs.readFileSync(p, 'utf8');
+  const after = fn(before);
+  if (after === before) throw new Error(`${file}: değişiklik yapılamadı`);
+  fs.writeFileSync(p, after);
+}
+
+edit('package.json', (s) => {
+  s = s.replace(/^(  "version": )"[^"]*"/m, `$1"${semver}"`);
+  s = /^  "fullVersion": /m.test(s)
+    ? s.replace(/^(  "fullVersion": )"[^"]*"/m, `$1"${arg}"`)
+    : s.replace(/^(  "version": "[^"]*",\r?\n)/m, `$1  "fullVersion": "${arg}",\n`);
+  s = /^    "buildVersion": /m.test(s)
+    ? s.replace(/^(    "buildVersion": )"[^"]*"/m, `$1"${arg}"`)
+    : s.replace(/^(  "build": \{\r?\n)/m, `$1    "buildVersion": "${arg}",\n`);
+  return s;
+});
+// package-lock: kök paketin iki sürüm alanı (en üstteki ve packages[""]).
+edit('package-lock.json', (s) => s
+  .replace(/^(  "version": )"[^"]*"/m, `$1"${semver}"`)
+  .replace(/^(  "packages": \{\r?\n    "": \{\r?\n      "name": "[^"]*",\r?\n      "version": )"[^"]*"/m, `$1"${semver}"`));
+
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+if (pkg.version !== semver || pkg.fullVersion !== arg || pkg.build.buildVersion !== arg) throw new Error('package.json doğrulanamadı');
+console.log(`Sürüm ${arg} (npm ${semver}). Etiket: V${arg}`);

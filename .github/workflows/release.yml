@@ -1,14 +1,16 @@
-# Release: main dalındaki bir commit'e vX.Y.Z etiketi gönderilince (npm version <patch|minor|major> && git push --follow-tags)
+# Release: main dalındaki bir commit'e V<sürüm> etiketi gönderilince, ör. V27.1.10.26
+#   npm run version:set -- 27.1.10.26 → commit → git tag V27.1.10.26 → git push --follow-tags
 # Windows'ta test eder, üç çıktıyı derler ve GitHub Release olarak yayınlar:
-#   fuxaw-setup-X.Y.Z.exe        fuxaw kurulum paketi (NSIS)
-#   fuxaw-win-x64-X.Y.Z.zip      kurulumsuz fuxaw (win-unpacked klasörü)
+#   fuxaw-setup-<sürüm>.exe        fuxaw kurulum paketi (NSIS)
+#   fuxaw-win-x64-<sürüm>.zip      kurulumsuz fuxaw (win-unpacked klasörü)
 #   install-fuxa.cmd, uninstall-fuxa.cmd   hedef makine kurulumu (tek dosya; npm run dist:installer)
+# <sürüm> package.json fullVersion'dur (dört parça); npm/Electron'un üç parçalı version'ı ondan türetilir.
 # EXE'ler imzasızdır (SmartScreen uyarısı verir).
 name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['V*', 'v*']
 
 permissions:
   contents: write
@@ -27,8 +29,9 @@ jobs:
           git fetch origin main
           git merge-base --is-ancestor $env:GITHUB_SHA origin/main
           if ($LASTEXITCODE) { throw "Etiket ($env:GITHUB_REF_NAME) main dalındaki bir commit'te değil." }
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Etiket $env:GITHUB_REF_NAME, package.json sürümü $version. 'npm version' ile etiketle." }
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          $version = if ($pkg.fullVersion) { $pkg.fullVersion } else { $pkg.version }
+          if ($env:GITHUB_REF_NAME.Substring(1) -ne $version) { throw "Etiket $env:GITHUB_REF_NAME, package.json sürümü $version. Önce 'npm run version:set -- <sürüm>'." }
           "VERSION=$version" >> $env:GITHUB_ENV
 
       # Node 22 (npm 10): bağımlılıkların kurulum betikleri çalışır; fuxa-runtime'daki sqlite3'ün derlenmiş dosyası böyle iner.
@@ -64,7 +67,10 @@ jobs:
         shell: pwsh
         run: |
           $out = New-Item -ItemType Directory -Force release
-          Copy-Item "dist/fuxaw-setup-$env:VERSION.exe" $out
+          # electron-builder dosyayı üç parçalı semver ile adlandırır (fuxaw-setup-27.1.10.exe); release'te tam sürüm.
+          $setup = @(Get-ChildItem dist -Filter 'fuxaw-setup-*.exe')
+          if ($setup.Count -ne 1) { throw "dist altında tek bir fuxaw-setup-*.exe bekleniyordu ($($setup.Count))." }
+          Copy-Item $setup[0].FullName (Join-Path $out "fuxaw-setup-$env:VERSION.exe")
           7z a -tzip "$out/fuxaw-win-x64-$env:VERSION.zip" ./dist/fast/win-unpacked/* | Out-Null
           if ($LASTEXITCODE) { throw '7z zip oluşturamadı.' }
           $inst = Get-ChildItem dist/installer -Directory | Select-Object -First 1
@@ -75,4 +81,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem release).FullName --title "fuxaw $env:VERSION" --generate-notes --verify-tag
+        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem release).FullName --title "fuxaw V$env:VERSION" --generate-notes --verify-tag
