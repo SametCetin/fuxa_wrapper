@@ -91,7 +91,7 @@ Geliştirmede Node.js 22+ gerekir (FUXA'yı da o çalıştırır). Paket için `
 
 Kod yapısı, tasarım kararları, FUXA API notları ve tuzaklar: **[AGENTS.md](AGENTS.md)**.
 
-Yönetilen projeler ayrı repoda: `C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1`, TwinCAT TC294_35 HMI'si).
+Yönetilen projeler ayrı repoda: `C:\sct\syncthing\repohf_sync\fuxa_projects` (ör. `TC294_35_Simu_fuxaw`, TwinCAT TC294_35 HMI'si).
 
 ## Klasör yapısı
 

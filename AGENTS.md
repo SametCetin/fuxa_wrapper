@@ -5,7 +5,7 @@ Bu dosya, bu klasörde çalışan AI asistanlar (Claude Code vb.) ve geliştiric
 Kullanıcıyla Türkçe konuş.
 
 Bu repo sadece **uygulama kodunu** içerir. Yönetilen FUXA projeleri ayrı bir repoda:
-`C:\sct\syncthing\sc_genel\fuxa_projects` (ör. `fuxa_project1/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler oradaki `AGENTS.md` ve `README.md`'dedir.
+`C:\sct\syncthing\repohf_sync\fuxa_projects` (ör. `TC294_35_Simu_fuxaw/`, TwinCAT TC294_35 HMI'si). O projeye ait bilgiler oradaki `AGENTS.md` ve `README.md`'dedir.
 
 **Ürün (kullanıcının kararı, 2026-10-02):** kendi penceresi olan bir masaüstü uygulaması. Electron, tüm işletim sistemleri.
 - Menü: **Yeni Proje, Aç, Kaydet, Farklı Kaydet, Son Projeler, Publish (sadece klasöre)**.
