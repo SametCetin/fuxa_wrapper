@@ -4,7 +4,7 @@
 | ----- | -------- |
 | `install-fuxa.cmd` | Node.js + FUXA 1.3.4'ü internetten kurar, fuxaw yamasını uygular, FUXA'yı başlatır |
 | `uninstall-fuxa.cmd` | FUXA'yı durdurup kaldırır; proje ve veriler (`data\`) korunur |
-| `download-project.cmd` | **Publish çıktısında** gelir: projeyi çalışan FUXA'ya yükler (önce yedekler) |
+| `download-<proje>.cmd` | **Publish** üretir (proje içine gömülü): projeyi FUXA'ya yükler (önce yedekler) |
 
 **Her betik tek dosyadır, yanında başka dosya gerekmez.** `install-fuxa.cmd` tek başına bir USB'ye ya da e-postaya konup verilebilir: sürüm bilgisi ve ADS (fuxaw) eklentisi dosyanın içine gömülüdür (~0,6 MB). Çalışınca kendi PowerShell kısmını `%TEMP%`'e çıkarıp çalıştırır, bitince siler.
 
@@ -55,7 +55,7 @@ Seçenekler: `install-fuxa.cmd -InstallDir D:\fuxa` (başka klasör), `-Port 188
 
 ## Projeyi yükle
 
-fuxaw'da **Dosya → Publish** ile üretilen klasörü hedefe kopyala ve içindeki `download-project.cmd`'ye çift tıkla. FUXA'daki mevcut proje `data\backups\` altına yedeklenir, sonra yeni proje yüklenir. Bağlantılar hemen kurulur; FUXA'yı yeniden başlatmak gerekmez. Geri almak için betiğin sonunda yazdığı komutu çalıştır: `download-project.cmd -Project <yedek json>`.
+fuxaw'da **Dosya → Publish** ile üretilen `download-<proje>.cmd`'yi (ör. `download-Simu_294_35.cmd`; proje içine gömülü, tek dosya) hedefe kopyala ve çift tıkla. FUXA çalışmıyorsa arka planda başlatılır, mevcut proje `data\backups\` altına yedeklenir, sonra yeni proje yüklenir; bağlantılar hemen kurulur, FUXA'yı yeniden başlatmak gerekmez. Son olarak runtime ekranı (Start FUXA penceresi) yeni projeyle yeniden açılır (`-NoView` ile atlanır). Geri almak için betiğin sonunda yazdığı komutu çalıştır: `download-<proje>.cmd -Project <yedek json>`.
 
 ## Kaldırma
 
