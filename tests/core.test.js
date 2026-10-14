@@ -178,7 +178,13 @@ test('publish klasöre proje JSON + README yazar', () => {
   assert.equal(model.digest(out), model.digest(doc.project));
   const readme = fs.readFileSync(path.join(res.dir, 'README.md'), 'utf8');
   assert.match(readme, /Open Project/);
+  assert.match(readme, /download-project\.cmd/);
   assert.match(readme, /tc3_ads/);
+  const ps1 = fs.readFileSync(path.join(res.dir, 'download-project.ps1'), 'utf8');
+  assert.ok(ps1.startsWith('﻿'), 'ps1 BOM ile yazılır');
+  assert.ok(!/[^\r]\n/.test(ps1), 'ps1 CRLF');
+  assert.ok(fs.existsSync(path.join(res.dir, 'download-project.cmd')));
+  assert.deepEqual(res.files.map((f) => path.basename(f)), ['p1.json', 'README.md', 'download-project.cmd', 'download-project.ps1']);
 });
 
 test('publish lint hatasında yazmaz', () => {

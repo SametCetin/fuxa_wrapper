@@ -1,12 +1,14 @@
 'use strict';
-// npm ile kurulmuş FUXA 1.3.4 için yama: ADS (fuxaw) eklentisi + editör formu + uygula/geri-al betikleri.
-//   dist/patch/<ad>/      hedef makinede uygula.cmd ile uygulanır
+// Hedef makine kurulumu: kur.cmd Node.js + FUXA 1.3.4'ü internetten kurar, sonra yamayı uygular
+// (ADS (fuxaw) eklentisi + editör formu). Pakette sadece yama ve betikler var; Node/FUXA yok.
+//   dist/patch/<ad>/      hedef makinede kur.cmd ile kurulur
 //   dist/patch/<ad>.zip   aynı klasör, taşımak için
 // Önce: npm run setup:ads (npm run dist:patch yapar). Yerel köprü için Windows x64'te üretilir.
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { NODE_VERSION } = require('./fetch-node');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_BASE = path.join(ROOT, 'dist', 'patch');
@@ -25,7 +27,7 @@ function main() {
   need(path.join(pluginDir, 'adsclient', 'native', 'bin', 'AdsBridge.exe'), 'Repo kökünde: npm run setup:ads');
   const engines = plugin.fuxawPlugin.engineVersions;
 
-  const name = `fuxaw-yama-${engines.join('_')}-v${app.version}`;
+  const name = `fuxaw-install-${engines.join('_')}-v${app.version}`;
   const out = path.join(OUT_BASE, name);
   fs.rmSync(out, { recursive: true, force: true });
   const lib = path.join(out, 'fuxaw');
@@ -47,7 +49,7 @@ function main() {
     // Windows PowerShell 5.1 BOM'suz UTF-8'i ANSI okur; Türkçe metinler için BOM ekle.
     fs.writeFileSync(path.join(out, f), (f.endsWith('.ps1') ? '\ufeff' : '') + text, 'utf8');
   }
-  fs.writeFileSync(path.join(out, 'surum.json'), JSON.stringify({ paket: name, fuxa: engines, adsEklentisi: plugin.version }, null, 2) + '\n');
+  fs.writeFileSync(path.join(out, 'surum.json'), JSON.stringify({ paket: name, fuxa: engines, node: NODE_VERSION, adsEklentisi: plugin.version }, null, 2) + '\n');
 
   const zip = `${out}.zip`;
   fs.rmSync(zip, { force: true });

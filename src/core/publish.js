@@ -2,6 +2,7 @@
 // Publish: hedef makine için klasöre çıkarma. Ağ üzerinden hiçbir yere gönderilmez.
 //   <klasör>/<ad>/<ad>.json   tam FUXA projesi (hedefte editör ☰ → Open Project)
 //   <klasör>/<ad>/README.md   nereye/nasıl koyulacağı, cihaz/tag özeti
+//   <klasör>/<ad>/download-project.cmd + .ps1   hedefte projeyi çalışan FUXA'ya yükler (önce yedekler)
 // Lint hatası varsa yazmaz.
 
 const fs = require('node:fs');
@@ -9,6 +10,13 @@ const path = require('node:path');
 const model = require('./model');
 const lintmod = require('./lint');
 const { safeName } = require('./fxprj');
+
+// Hedefte çalışan betikler (src/core/target/). Windows PowerShell 5.1 BOM'suz UTF-8'i ANSI okur.
+const SCRIPTS = ['download-project.cmd', 'download-project.ps1'];
+function scriptText(f) {
+  const text = fs.readFileSync(path.join(__dirname, 'target', f), 'utf8').replace(/\r?\n/g, '\r\n');
+  return (f.endsWith('.ps1') ? '﻿' : '') + text;
+}
 
 /** .fxprj'deki publish.dir'i mutlak yola çevirir (göreliyse .fxprj klasörüne göre). */
 function resolveDir(doc, fxprjPath) {
@@ -28,7 +36,7 @@ function plan(doc, fxprjPath) {
     lint: found,
     errors: found.filter((f) => f.level === lintmod.ERROR).length,
     dir: out,
-    files: out ? [path.join(out, `${name}.json`), path.join(out, 'README.md')] : [],
+    files: out ? [path.join(out, `${name}.json`), path.join(out, 'README.md'), ...SCRIPTS.map((f) => path.join(out, f))] : [],
   };
 }
 
@@ -40,6 +48,7 @@ function publish(doc, fxprjPath, now = new Date()) {
   const [prjFile, readmeFile] = p.files;
   fs.writeFileSync(prjFile, JSON.stringify(model.cleanProject(doc.project), null, 2) + '\n', 'utf8');
   fs.writeFileSync(readmeFile, readme(doc, fxprjPath, path.basename(prjFile), p.lint, now), 'utf8');
+  for (const f of SCRIPTS) fs.writeFileSync(path.join(p.dir, f), scriptText(f), 'utf8');
   return { ok: true, ...p };
 }
 
@@ -63,20 +72,22 @@ function readme(doc, fxprjPath, fname, found, now) {
     '',
     '## Dosyalar',
     '',
-    `- \`${fname}\`: tam proje (cihazlar, tag'ler, ekranlar, script'ler). FUXA editöründe *Open Project* ile açılır.`,
+    `- \`${fname}\`: tam proje (cihazlar, tag'ler, ekranlar, script'ler).`,
+    '- `download-project.cmd` (+ `.ps1`): projeyi hedefte çalışan FUXA\'ya yükler.',
     '',
-    '## Hedef makinede nereye koyulur',
+    '## Hedef makineye yükleme',
     '',
-    'FUXA projeyi kendi veritabanında tutar; bu dosya FUXA\'nın kurulum veya `_appdata` klasörüne **kopyalanmaz**,',
-    'editörden içeri alınır.',
+    'Hedefte FUXA, fuxaw kurulum paketindeki `install-fuxa.cmd` ile kurulmuş olmalı (`C:\\ProgramData\\fuxa`).',
     '',
     `1. Bu klasörü hedef makineye kopyala, ör. \`C:\\fuxa_publish\\${safeName(doc.name)}\\\`.`,
-    '2. Hedef makinede FUXA editörünü aç: `http://127.0.0.1:1881/editor` (port farklıysa onu yaz).',
-    '3. **Önce mevcut projeyi yedekle:** sol üst ☰ menü → *Save Project As...* → inen JSON\'u sakla.',
-    `4. ☰ menü → *Open Project* (Türkçe arayüzde *Aç*) → \`${fname}\` dosyasını seç. Proje hemen FUXA sunucusuna kaydedilir.`,
-    '5. Açık runtime sayfalarını (`/home`) yenile.',
+    '2. FUXA çalışmıyorsa başlat: `C:\\ProgramData\\fuxa\\start-fuxa.cmd`.',
+    '3. `download-project.cmd`\'ye çift tıkla. Önce FUXA\'daki mevcut proje `C:\\ProgramData\\fuxa\\data\\yedek\\` altına yedeklenir,',
+    `   sonra \`${fname}\` yüklenir. Bağlantılar hemen kurulur; FUXA'yı yeniden başlatmak gerekmez.`,
+    '4. Açık runtime sayfalarını (`http://127.0.0.1:1881/home`) yenile.',
     '',
-    'Geri almak için 3. adımdaki yedeği aynı yolla (*Open Project*) aç.',
+    'Geri almak için: `download-project.cmd -Dosya <yedek json>` (betik bittiğinde tam komutu yazar).',
+    '',
+    `Elle yüklemek istersen: FUXA editörü (\`http://127.0.0.1:1881/editor\`) → ☰ → *Save Project As...* (yedek), sonra ☰ → *Open Project* → \`${fname}\`.`,
     '',
     '## Kontrol et',
     '',
