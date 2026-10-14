@@ -1,0 +1,70 @@
+# Release: main dalındaki bir commit'e vX.Y.Z etiketi gönderilince (npm version <patch|minor|major> && git push --follow-tags)
+# Windows'ta test eder, üç çıktıyı derler ve GitHub Release olarak yayınlar:
+#   fuxaw-setup-X.Y.Z.exe        fuxaw kurulum paketi (NSIS)
+#   fuxaw-win-x64-X.Y.Z.zip      kurulumsuz fuxaw (win-unpacked klasörü)
+#   install-fuxa.cmd, uninstall-fuxa.cmd   hedef makine kurulumu (tek dosya; npm run dist:installer)
+# EXE'ler imzasızdır (SmartScreen uyarısı verir).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Etiket main üzerinde ve package.json sürümüyle aynı mı
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE) { throw "Etiket ($env:GITHUB_REF_NAME) main dalındaki bir commit'te değil." }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Etiket $env:GITHUB_REF_NAME, package.json sürümü $version. 'npm version' ile etiketle." }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      # Node 22 (npm 10): bağımlılıkların kurulum betikleri çalışır; fuxa-runtime'daki sqlite3'ün derlenmiş dosyası böyle iner.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bağımlılıklar (Electron, gömülü FUXA, ADS eklentisi)
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: fuxaw kurulum paketi (NSIS)
+        run: npm run dist -- --publish never
+
+      - name: Kurulumsuz fuxaw (Hızlı EXE)
+        run: npm run dist:fast -- --publish never
+
+      - name: Hedef makine kurulumu
+        run: npm run dist:installer
+
+      - name: Release dosyalarını topla
+        shell: pwsh
+        run: |
+          $out = New-Item -ItemType Directory -Force release
+          Copy-Item "dist/fuxaw-setup-$env:VERSION.exe" $out
+          7z a -tzip "$out/fuxaw-win-x64-$env:VERSION.zip" ./dist/fast/win-unpacked/* | Out-Null
+          if ($LASTEXITCODE) { throw '7z zip oluşturamadı.' }
+          $inst = Get-ChildItem dist/installer -Directory | Select-Object -First 1
+          Copy-Item (Join-Path $inst.FullName 'install-fuxa.cmd'), (Join-Path $inst.FullName 'uninstall-fuxa.cmd') $out
+          Get-ChildItem $out | Format-Table Name, Length
+
+      - name: GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem release).FullName --title "fuxaw $env:VERSION" --generate-notes --verify-tag
