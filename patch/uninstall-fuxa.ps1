@@ -1,30 +1,31 @@
-# install-fuxa ile yapılan kurulumu kaldırır: FUXA'yı durdurur, node\, app\ ve start-fuxa.cmd'yi siler.
-# data\ (proje, ayarlar, veritabanları, günlükler, yedekler) korunur; install-fuxa tekrar çalışınca aynı proje açılır.
-# Tamamen silmek için bundan sonra kurulum klasörünü elle sil.
-# Kullanım: uninstall-fuxa.cmd [-Hedef C:\ProgramData\fuxa] [-Evet]
+# Removes an install-fuxa install: stops FUXA, deletes node\, app\ and start-fuxa.cmd.
+# data\ (project, settings, databases, logs, backups) is kept; running install-fuxa again opens the same project.
+# To remove everything, delete the install folder by hand afterwards.
+# Usage: uninstall-fuxa.cmd [-InstallDir C:\ProgramData\fuxa] [-Yes]
+# Messages are ASCII only: Windows PowerShell 5.1 consoles garble UTF-8.
 param(
-  [string]$Hedef = (Join-Path $env:ProgramData 'fuxa'),
-  [switch]$Evet
+  [string]$InstallDir = (Join-Path $env:ProgramData 'fuxa'),
+  [switch]$Yes
 )
 $ErrorActionPreference = 'Stop'
 
-if (-not (Test-Path $Hedef)) { Write-Host "Kurulum yok: $Hedef"; return }
-$Hedef = (Resolve-Path $Hedef).Path
-$silinecek = @('node', 'app', 'start-fuxa.cmd', 'baslat.cmd') | ForEach-Object { Join-Path $Hedef $_ } | Where-Object { Test-Path $_ }
-if (-not $silinecek) { Write-Host "Kaldırılacak bir şey yok: $Hedef"; return }
+if (-not (Test-Path $InstallDir)) { Write-Host "Nothing installed: $InstallDir"; return }
+$InstallDir = (Resolve-Path $InstallDir).Path
+$remove = @('node', 'app', 'start-fuxa.cmd') | ForEach-Object { Join-Path $InstallDir $_ } | Where-Object { Test-Path $_ }
+if (-not $remove) { Write-Host "Nothing to remove: $InstallDir"; return }
 
-Write-Host "Kaldırılacak: $($silinecek -join ', ')"
-Write-Host "Korunacak:    $(Join-Path $Hedef 'data')"
-if (-not $Evet) {
-  $cevap = Read-Host 'Devam edilsin mi? (E/H)'
-  if ($cevap -notmatch '^[eEyY]') { throw 'Vazgeçildi.' }
+Write-Host "Will remove: $($remove -join ', ')"
+Write-Host "Will keep:   $(Join-Path $InstallDir 'data')"
+if (-not $Yes) {
+  $answer = Read-Host 'Continue? (Y/N)'
+  if ($answer -notmatch '^[yY]') { throw 'Cancelled.' }
 }
 
 $procs = @(Get-CimInstance Win32_Process | Where-Object {
-    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($Hedef + '\', [StringComparison]::OrdinalIgnoreCase) })
+    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir + '\', [StringComparison]::OrdinalIgnoreCase) })
 foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
-if ($procs.Count) { Write-Host 'Çalışan FUXA durduruldu.'; Start-Sleep -Seconds 2 }
+if ($procs.Count) { Write-Host 'Stopped the running FUXA.'; Start-Sleep -Seconds 2 }
 
-foreach ($s in $silinecek) { Remove-Item -LiteralPath $s -Recurse -Force }
-Write-Host 'FUXA kaldırıldı.'
-Write-Host "Proje ve veriler korundu: $(Join-Path $Hedef 'data')"
+foreach ($r in $remove) { Remove-Item -LiteralPath $r -Recurse -Force }
+Write-Host 'FUXA removed.'
+Write-Host "Project and data kept: $(Join-Path $InstallDir 'data')"
