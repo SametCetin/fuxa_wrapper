@@ -13,6 +13,7 @@ const { lint, ERROR } = require('../src/core/lint');
 const { tagTable } = require('../src/core/tags');
 const fxprj = require('../src/core/fxprj');
 const publisher = require('../src/core/publish');
+const selfcontained = require('../src/core/target/selfcontained');
 
 const LIVE_TEXT = fs.readFileSync(path.join(__dirname, 'fixtures', 'fuxa1_live.json'), 'utf8');
 const DEV = 'd_31db3b81-3ebe4777';
@@ -180,11 +181,36 @@ test('publish klasöre proje JSON + README yazar', () => {
   assert.match(readme, /Open Project/);
   assert.match(readme, /download-project\.cmd/);
   assert.match(readme, /tc3_ads/);
-  const ps1 = fs.readFileSync(path.join(res.dir, 'download-project.ps1'), 'utf8');
-  assert.ok(ps1.startsWith('﻿'), 'ps1 BOM ile yazılır');
-  assert.ok(!/[^\r]\n/.test(ps1), 'ps1 CRLF');
-  assert.ok(fs.existsSync(path.join(res.dir, 'download-project.cmd')));
-  assert.deepEqual(res.files.map((f) => path.basename(f)), ['p1.json', 'README.md', 'download-project.cmd', 'download-project.ps1']);
+  const cmd = fs.readFileSync(path.join(res.dir, 'download-project.cmd'), 'utf8');
+  assert.ok(cmd.startsWith('@echo off\r\n'));
+  assert.ok(!/[^\r]\n/.test(cmd), 'cmd CRLF');
+  assert.ok(!/[^\x00-\x7f]/.test(cmd), 'cmd ASCII');
+  assert.match(selfcontained.extractPs(cmd), /^##FUXAW-PS\r\n# fuxaw Publish output/);
+  assert.match(selfcontained.extractPs(cmd), /FXW_SCRIPT_DIR/);
+  assert.deepEqual(res.files.map((f) => path.basename(f)), ['p1.json', 'README.md', 'download-project.cmd']);
+});
+
+test('publish eski iki dosyalı download-project.ps1 kalıntısını siler', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'p1.fxprj');
+  const doc = fxprj.newDoc('p1');
+  doc.project = live();
+  const out = path.join(dir, 'publish', 'p1');
+  fs.mkdirSync(out, { recursive: true });
+  fs.writeFileSync(path.join(out, 'download-project.ps1'), 'eski');
+  assert.equal(publisher.publish(doc, file).ok, true);
+  assert.ok(!fs.existsSync(path.join(out, 'download-project.ps1')));
+});
+
+test('tek dosyalık cmd: PowerShell bölümü işaretten itibaren aynen çıkar, cmd bölümü exit ile biter', () => {
+  const ps = 'param([switch]$Yes)\nWrite-Host "hi"\n';
+  const cmd = selfcontained.selfContainedCmd(ps, 'FAILED.');
+  assert.equal(selfcontained.extractPs(cmd), '##FUXAW-PS\r\n' + ps.replace(/\n/g, '\r\n'));
+  const head = cmd.slice(0, cmd.lastIndexOf(selfcontained.MARK));
+  assert.match(head, /exit \/b %FXW_RC%\r\n$/);
+  assert.ok(!head.includes(selfcontained.MARK), 'işaret cmd bölümünde bitişik geçmez');
+  assert.throws(() => selfcontained.selfContainedCmd('Write-Host "ö"', 'x'), /ASCII/);
+  assert.throws(() => selfcontained.selfContainedCmd('# ##FUXAW-PS', 'x'), /içeremez/);
 });
 
 test('publish lint hatasında yazmaz', () => {

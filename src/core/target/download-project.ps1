@@ -13,9 +13,11 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $Url = "http://127.0.0.1:$Port"
+# Folder of download-project.cmd (the .cmd extracts this script to %TEMP%, so $PSScriptRoot is not it).
+$Here = if ($env:FXW_SCRIPT_DIR) { $env:FXW_SCRIPT_DIR.TrimEnd('\') } else { $PSScriptRoot }
 
 if (-not $Project) {
-  $candidates = @(Get-ChildItem $PSScriptRoot -Filter *.json -File)
+  $candidates = @(Get-ChildItem $Here -Filter *.json -File)
   if ($candidates.Count -ne 1) { throw "Expected exactly one project JSON in this folder (found $($candidates.Count)). Pass it with -Project." }
   $Project = $candidates[0].FullName
 }
@@ -46,7 +48,7 @@ if (-not $Yes) {
   if ($answer -notmatch '^[yY]') { throw 'Cancelled.' }
 }
 
-$backupDir = if (Test-Path (Join-Path $InstallDir 'data')) { Join-Path $InstallDir 'data\backups' } else { Join-Path $PSScriptRoot 'backups' }
+$backupDir = if (Test-Path (Join-Path $InstallDir 'data')) { Join-Path $InstallDir 'data\backups' } else { Join-Path $Here 'backups' }
 New-Item -ItemType Directory -Force $backupDir | Out-Null
 $backup = Join-Path $backupDir ("project-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.json')
 Invoke-WebRequest "$Url/api/project" -UseBasicParsing -OutFile $backup
