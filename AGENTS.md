@@ -56,6 +56,8 @@ npm run dist:installer   # dist/installer/fuxaw-install-*: hedef kurulumu, insta
 npm run dist         # kurulum paketi (Windows'ta NSIS)
 ```
 
+**GitHub Release (kullanıcı kararı, 2026-10-14):** `.github/workflows/release.yml`, `main` dalındaki bir commit'e `vX.Y.Z` etiketi gönderilince Windows'ta çalışır: etiketin `main`'de ve `package.json` sürümüyle aynı olduğunu kontrol eder, Node 22 ile `npm ci` (npm 10 kurulum betiklerini çalıştırır; gömülü FUXA'nın sqlite3'ü buna bağlı), `npm test`, `dist` (`--publish never`), `dist:fast`, `dist:installer`; release'e `fuxaw-setup-X.Y.Z.exe`, `fuxaw-win-x64-X.Y.Z.zip`, `install-fuxa.cmd`, `uninstall-fuxa.cmd` eklenir, notlar PR'lardan üretilir. Akış: `main`'de `npm version <patch|minor|major>` → `git push --follow-tags`. EXE'ler imzasız; repo public olduğu için release herkese açık.
+
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar; ana süreç + pencere arayüzü, port 9223; alt yapılandırmalar `presentation.hidden`), **Release** (`npm run dist`) ve **Hızlı EXE** (`npm run dist:fast`; debugger kapalı). Hızlı EXE, Windows x64 kurulumsuz paketini `dist/fast/win-unpacked` altına üretir; `win.signExecutable=false` imzalamayı atlar, EXE kaynak/metadata düzenlemesi korunur. `tasks.json`: Ctrl+Shift+B = Release; Hızlı EXE ayrıca seçilebilir. Proje uygulamanın içinden açılır.
 
 Testler `tests/fixtures/fuxa1_live.json` (gerçek projenin kopyası) dosyasını kullanır. Durum: 71 test geçiyor (2026-10-13).

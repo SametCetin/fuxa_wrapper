@@ -74,7 +74,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "fuxaw-setup-${version}.${ext}"
     },
     "linux": {
       "target": [

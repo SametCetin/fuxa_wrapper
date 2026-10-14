@@ -84,6 +84,8 @@ npm run dist:installer # hedef makine kurulumu: dist/installer/fuxaw-install-*.z
 npm run dist       # kurulum paketi
 ```
 
+**Release (GitHub):** `main` dalında `npm version minor` (ya da `patch`/`major`) ve `git push --follow-tags`. Etiket gönderilince GitHub Actions test eder, derler ve [Releases](https://github.com/SametCetin/fuxa_wrapper/releases) sayfasına `fuxaw-setup-X.Y.Z.exe`, `fuxaw-win-x64-X.Y.Z.zip`, `install-fuxa.cmd` ve `uninstall-fuxa.cmd` koyar (`.github/workflows/release.yml`). EXE'ler imzasız (SmartScreen uyarısı).
+
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır; proje uygulamadan açılır), **Release** (kurulum paketi, `dist/`) ve **Hızlı EXE** (imzasız, kurulumsuz Windows x64 paketi, `dist/fast/win-unpacked/fuxaw.exe`). Ctrl+Shift+B = Release; diğer derleme görevleri arasından Hızlı EXE de seçilebilir. Hızlı EXE, NSIS ve imzalama adımlarını atlar; çalıştırmak/taşımak için tüm `win-unpacked` klasörü gerekir.
 
 Geliştirmede Node.js 22+ gerekir (FUXA'yı da o çalıştırır). Paket için `scripts/fetch-node.js` sabit sürüm Node.js'i `vendor/node/`'a indirir.
