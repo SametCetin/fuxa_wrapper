@@ -49,7 +49,7 @@ Editördeki **FUXA Server → Polling** yalnızca sunucu içi tag'lerin döngüs
 <publish klasörü>/<ad>/
 ├─ <ad>.json              tam proje
 ├─ README.md              hedef makineye yükleme adımları, cihaz/tag özeti
-└─ download-project.cmd   (+ .ps1) hedefte çift tıklanır: FUXA'daki projeyi yedekler, bunu yükler
+└─ download-project.cmd   hedefte çift tıklanır: FUXA'daki projeyi yedekler, bunu yükler (tek dosya)
 ```
 
 Hedefte FUXA, kurulum paketindeki `install-fuxa.cmd` ile kurulmuş olmalı (aşağıda "Hedef makine").
