@@ -25,6 +25,7 @@ Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases).
 | File → Publish (to folder)… (*Publish (klasöre)…*, Ctrl+Shift+P) | Writes `<publish folder>/<name>/download-<name>.cmd` from the saved project |
 | Project → Editor / Tags / Check (*Proje → Editör / Taglar / Kontrol*, Ctrl+1/2/3) | Tabs |
 | Project → Scripts (*Scriptler*, Ctrl+6) | Opens the embedded script management |
+| Project → ADS Symbols… (*ADS sembolleri…*, Ctrl+7) | Reads the exported symbols from the selected ADS connection and adds the selected scalar symbols as tags. Search by symbol/type, filter by group; arrays and structures are listed but cannot be imported |
 | Project → Open runtime (*Runtime'ı aç*, F5) | Opens the running project in a separate window |
 | Settings → Connections and tags… (*Ayarlar → Bağlantılar ve tag yönetimi…*, Ctrl+4) | Full connection/tag management: editing, live values, connection import/export |
 | Settings → Server plugins… (*Sunucu eklentileri…*, Ctrl+5) | Server plugins; the bundled `@fuxaw/ads-plugin` is listed here; Ctrl+1 returns to the drawing editor |
@@ -41,7 +42,7 @@ Double-clicking a `.fxprj` file also opens the project (the installer registers 
 - **Editor:** the FUXA editor (views, devices, tags, scripts). The editor's own ☰ project menu is hidden; saving/opening is done from the app's File menu.
 - **Tags:** the embedded editor's tag table: add, edit, delete, search, live value and timestamp. The first PLC/external device opens first, otherwise the internal server device. The last selected connection is remembered while the same project is open. Use File → Save to write changes to the `.fxprj`.
 - **Scripts:** next to the Check tab, or Ctrl+6.
-- **Check → Project check:** known FUXA pitfalls (e.g. *Toggle value* on a Boolean ADS tag) and broken tag/script references. Publish is blocked when there is an ERROR.
+- **Check → Project check:** known FUXA pitfalls (e.g. *Toggle value* on a Boolean ADS tag) and broken tag/script references. It also checks ADS connection settings, duplicate ADS symbol addresses and unsupported ADS tag types without connecting to the PLC. Publish is blocked when there is an ERROR.
 - **Check → Tag usage:** search over all tags, device and unused filters. The usage count covers view items, events and script references. **Copy** copies the visible rows in a form that pastes into Excel.
 - **Connections:** the original device diagram, connection editing and import/export. For a new connection choose **Type → ADS (fuxaw)** and, in the same dialog, **Connection method** (*Bağlantı yöntemi*) → **Local TwinCAT** (*Yerel TwinCAT (Windows)*) or **ADS-TCP**. **ADSclient (original)** uses FUXA's own `ads-client` driver, **ADS (fuxaw)** the separate `@fuxaw/ads-plugin` driver. Both plugins are listed separately on the Server plugins page; ours can be removed and reinstalled offline there.
 
@@ -50,6 +51,10 @@ Double-clicking a `.fxprj` file also opens the project (the installer registers 
 Connections → pencil icon of the ADS device → set **Polling** to e.g. `100 ms` → **OK**. This value sets the sampling time of the ADS / TCP subscription and the Local TwinCAT read interval; the update loop to the UI uses the same device setting. **OK** reconnects the device; File → Save writes the setting to the `.fxprj`.
 
 **FUXA Server → Polling** in the editor only sets the loop of the server's internal tags; it does not change the ADS device. For Local TwinCAT reads the processing time adds to the interval; 100 ms is not a hard real-time guarantee.
+
+### ADS symbol picker
+
+**Project → ADS Symbols…** (Ctrl+7) reads the exported symbol list from the selected ADS connection (Local TwinCAT or ADS-TCP) only when you press **Read symbols**; opening a project or publishing never needs a PLC. Search by symbol or type, filter by group and select the scalar symbols to add. Primitive types map to **Boolean** (BOOL/BIT), **Number** (integer types up to 32 bits, REAL/LREAL, TIME/TOD and OTCID) and **String** (STRING/WSTRING). 64-bit integers, date objects, enums/aliases, arrays and structures are listed as unsupported and are not imported silently; add their members by address in the normal tag editor if needed. Existing tags are kept; an already used address is not added again. Tag names are the exact symbol names (leading dots included), with `_2`, `_3`… appended if the name already exists.
 
 ### Publish output
 

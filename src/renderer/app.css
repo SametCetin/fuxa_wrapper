@@ -134,3 +134,8 @@ table.grid { width: 100%; border-collapse: collapse; }
 .form-errors:empty { display: none; }
 .connection-help { margin: 0; padding: 12px; color: var(--muted); border-bottom: 1px solid var(--line); line-height: 1.5; }
 .transport-help { padding: 10px 12px; background: var(--panel-2); border-radius: 4px; line-height: 1.5; }
+.dialog.wide { width: min(1040px, 96vw); }
+.ads-picker { display: flex; flex-direction: column; gap: 8px; }
+.ads-picker > .pane-bar { padding: 0 0 4px; border-bottom: none; background: none; }
+.ads-picker .table-wrap { flex: 0 1 auto; max-height: 55vh; border: 1px solid var(--line); border-radius: 4px; }
+.ads-picker p { margin: 2px 0 0; }
