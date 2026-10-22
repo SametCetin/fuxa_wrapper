@@ -19,11 +19,11 @@ if (!/^\d+\.\d+\.\d+\.\d+$/.test(arg)) {
 const semver = arg.split('.').slice(0, 3).join('.');
 
 // Sadece ilgili satırlar değiştirilir; dosyanın geri kalan biçimi korunur.
-function edit(file, fn) {
+function edit(file, fn, allowUnchanged = false) {
   const p = path.join(ROOT, file);
   const before = fs.readFileSync(p, 'utf8');
   const after = fn(before);
-  if (after === before) throw new Error(`${file}: değişiklik yapılamadı`);
+  if (after === before && !allowUnchanged) throw new Error(`${file}: değişiklik yapılamadı`);
   fs.writeFileSync(p, after);
 }
 
@@ -40,8 +40,10 @@ edit('package.json', (s) => {
 // package-lock: kök paketin iki sürüm alanı (en üstteki ve packages[""]).
 edit('package-lock.json', (s) => s
   .replace(/^(  "version": )"[^"]*"/m, `$1"${semver}"`)
-  .replace(/^(  "packages": \{\r?\n    "": \{\r?\n      "name": "[^"]*",\r?\n      "version": )"[^"]*"/m, `$1"${semver}"`));
+  .replace(/^(  "packages": \{\r?\n    "": \{\r?\n      "name": "[^"]*",\r?\n      "version": )"[^"]*"/m, `$1"${semver}"`), true);
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 if (pkg.version !== semver || pkg.fullVersion !== arg || pkg.build.buildVersion !== arg) throw new Error('package.json doğrulanamadı');
+const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'));
+if (lock.version !== semver || lock.packages[''].version !== semver) throw new Error('package-lock.json doğrulanamadı');
 console.log(`Sürüm ${arg} (npm ${semver}). Etiket: V${arg}`);
