@@ -3,12 +3,14 @@
 // Bkz. AGENTS.md "Tuzaklar". Her bulgu {level, where, message}; level "HATA" publish'i durdurur.
 
 const model = require('./model');
+const { ADS_DEVICE_TYPES, parseAdsAddress, adsConnectOptions, symbolAddressKey } = require('./adsSymbols');
 const { t } = require('./i18n');
 
 const ERROR = 'HATA';
 const WARN = 'UYARI';
 
 const BOOL_TEXT = new Set(['true', 'false']);
+const ADS_TAG_TYPES = new Set(['boolean', 'number', 'string']);
 // $getTagId('ad') veya $getTagId('ad', 'cihaz')
 const GET_TAG_ID = /\$getTagId\(\s*(['"])(.*?)\1\s*(?:,\s*(['"])(.*?)\3)?\s*\)/g;
 const PAGE_ACTIONS = new Set(['onpage', 'ondialog', 'onwindow', 'oncard', 'onViewToPanel']);
@@ -40,6 +42,40 @@ function lint(items) {
   const { tags, byName } = tagIndex(items);
   const scripts = new Set(model.itemsOfKind(items, 'script').map(([, s]) => s.id));
   const views = new Set(model.itemsOfKind(items, 'view').map(([, v]) => v.id));
+
+  // ADS bağlantı ayarları ve tag'leri: çevrimdışı kurallar, PLC'ye bağlanmadan çalışır.
+  for (const [k, dev] of model.itemsOfKind(items, 'device')) {
+    if (!ADS_DEVICE_TYPES.has(dev.type)) continue;
+    const label = model.label(k, dev);
+    const prop = dev.property || {};
+    const parsed = parseAdsAddress(prop.address);
+    const cfg = adsConnectOptions({ ...prop, ...(dev.type === 'ADSclient' ? { adsTransport: 'tcp' } : {}) });
+    if (cfg.error === 'port') add(ERROR, label, t('conn.port'));
+    if (cfg.error === 'local') add(ERROR, label, t('conn.local'));
+    if (cfg.error === 'router') add(ERROR, label, t('conn.router'));
+    if (!String(prop.address || '').trim()) add(ERROR, label, t('lint.adsAddressMissing'));
+    else if (!parsed) add(ERROR, label, t('lint.adsAddress', { address: prop.address }));
+    else if (parsed.port === null && !(Number(prop.port) >= 1 && Number(prop.port) <= 65535)) {
+      add(WARN, label, t('lint.adsPort'));
+    }
+    if (dev.type === 'FuxawADS') {
+      const transport = prop.adsTransport;
+      if (transport === undefined || transport === '') add(WARN, label, t('lint.adsTransportMissing'));
+      else if (transport !== 'native' && transport !== 'tcp') add(ERROR, label, t('lint.adsTransport', { transport: String(transport) }));
+    }
+    const seenAddresses = new Map();
+    for (const [tid, tag] of Object.entries(dev.tags || {})) {
+      const where = `${label} / ${tag.name || tid}`;
+      const address = String(tag.address || '').trim();
+      if (!address) add(ERROR, where, t('lint.adsTagAddress'));
+      if (!ADS_TAG_TYPES.has(String(tag.type || '').toLowerCase())) {
+        add(ERROR, where, t('lint.adsTagType', { type: String(tag.type || '') }));
+      }
+      if (!address) continue;
+      if (seenAddresses.has(symbolAddressKey(address))) add(WARN, where, t('lint.adsDuplicateAddress', { address, other: seenAddresses.get(symbolAddressKey(address)) }));
+      else seenAddresses.set(symbolAddressKey(address), tag.name || tid);
+    }
+  }
 
   // Aynı adlı ekranlar: FUXA set-view'da sessizce atlıyor
   const seen = new Map();

@@ -16,6 +16,8 @@ const folder = require('../core/folder');
 const model = require('../core/model');
 const lintmod = require('../core/lint');
 const { tagTable, tagTypesFor, isInternal, buildTag, prepareTagRemoval } = require('../core/tags');
+const { isAdsDevice, planSymbolImport } = require('../core/adsSymbols');
+const { browseDeviceSymbols } = require('./adsBrowse');
 const publisher = require('../core/publish');
 const { buildAdsDevice } = require('../core/connections');
 const sync = require('../core/sync');
@@ -749,6 +751,61 @@ async function saveConnection(spec) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------- ADS sembolleri
+function adsPluginDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'plugins', 'native-ads')
+    : path.join(__dirname, '..', '..', 'integrations', 'native-ads');
+}
+
+/** Projedeki ADS cihazları ve tag adresleri. PLC'ye bağlanmaz. */
+async function adsDevices() {
+  if (!cur.doc) return null;
+  await flushEditor();
+  const project = await api.getProject(requireFuxa());
+  const devices = Object.values(project.devices || {}).filter(isAdsDevice).map((d) => ({
+    id: d.id, name: d.name, type: d.type, address: String(d.property && d.property.address || ''),
+    transport: String(d.property && d.property.adsTransport || ''),
+    addresses: Object.values(d.tags || {}).map((tag) => String(tag.address || '').trim()).filter(Boolean),
+  }));
+  return { devices };
+}
+
+/** Yalnız kullanıcı istediğinde PLC'den sembol listesini okur; sonuç önbelleğe alınmaz. */
+async function adsBrowse(spec) {
+  if (!cur.doc || !spec || typeof spec.deviceId !== 'string') return null;
+  await flushEditor();
+  const project = await api.getProject(requireFuxa());
+  const device = (project.devices || {})[spec.deviceId];
+  if (!device || !isAdsDevice(device)) return { ok: false, reason: 'config', message: t('ads.reason.device-type') };
+  try {
+    const result = await browseDeviceSymbols(device, { pluginDir: adsPluginDir() });
+    return { ok: true, ...result };
+  } catch (error) {
+    return { ok: false, reason: error.reason || 'connect', message: error.message || String(error) };
+  }
+}
+
+/** Seçilen sembolleri cihaza tag olarak ekler; mevcut tag'ler korunur. */
+async function adsImport(spec) {
+  if (!cur.doc || !spec || typeof spec.deviceId !== 'string' || !Array.isArray(spec.symbols)) return null;
+  const url = requireFuxa();
+  await flushEditor();
+  const project = await api.getProject(url);
+  const device = (project.devices || {})[spec.deviceId];
+  if (!device || !isAdsDevice(device)) return { ok: false, error: t('ads.reason.device-type') };
+  const plan = planSymbolImport(device, spec.symbols);
+  if (plan.errors) return { ok: false, error: plan.errors.map((reason) => t(`ads.reason.${reason}`)).join(', ') };
+  if (plan.added.length) {
+    await api.projectData(url, 'set-device', plan.device);
+    await loadEditor(); // editörün eski cihaz kopyası yeni tag'lerin üzerine yazmasın
+  }
+  return {
+    ok: true, added: plan.added, skipped: plan.skipped,
+    addresses: Object.values(plan.device.tags || {}).map((tag) => String(tag.address || '').trim()).filter(Boolean),
+  };
+}
+
 // Publish: kaydedilmiş hali yazar. Kaydedilmemiş değişiklik varsa önce kaydetmek gerekir.
 async function publishPrepare() {
   if (!cur.doc) return null;
@@ -889,6 +946,7 @@ function buildMenu() {
         { label: t('menu.tags'), accelerator: 'CmdOrCtrl+2', click: run(() => showEditorPage('tags')) },
         { label: t('menu.lint'), accelerator: 'CmdOrCtrl+3', click: send('tab:lint') },
         { label: t('menu.scripts'), accelerator: 'CmdOrCtrl+6', click: run(() => showEditorPage('scripts')) },
+        { label: t('menu.adsSymbols'), accelerator: 'CmdOrCtrl+7', click: send('ads-symbols') },
         { type: 'separator' },
         { label: t('menu.runtime'), accelerator: 'F5', click: openRuntime },
         { label: t('menu.reloadEditor'), click: () => cur.doc && loadEditor() },
@@ -954,6 +1012,9 @@ function registerIpc() {
   handle('analyze', guard(analyze));
   handle('tag:add', guard(addTag));
   handle('tag:delete', guard(deleteTag));
+  handle('ads:devices', guard(adsDevices));
+  handle('ads:browse', guard(adsBrowse));
+  handle('ads:import', guard(adsImport));
   handle('connections:list', guard(connections));
   handle('connections:save', guard(saveConnection));
   handle('connections:other', guard(() => showEditorPage('device')));

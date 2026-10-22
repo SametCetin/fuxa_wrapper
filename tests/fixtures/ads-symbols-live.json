@@ -1,0 +1,122 @@
+[
+  {
+    "name": ".AlarmAck",
+    "type": "BOOL",
+    "adsDataTypeStr": "ADST_BIT",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": ".AktifParca",
+    "type": "UINT",
+    "adsDataTypeStr": "ADST_UINT16",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": " Kesim prosesi"
+  },
+  {
+    "name": "Global_Variables.P_0_IDN",
+    "type": "WORD",
+    "adsDataTypeStr": "ADST_UINT16",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": ".AtilacakFireBoy",
+    "type": "LREAL",
+    "adsDataTypeStr": "ADST_REAL64",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": " Bosaltma tarafindan atilacak fire"
+  },
+  {
+    "name": "CUTSTA_PRG.UNLSTA1",
+    "type": "INT",
+    "adsDataTypeStr": "ADST_INT16",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "Global_Variables.ADSIGRP_DEVICE_DATA",
+    "type": "UDINT",
+    "adsDataTypeStr": "ADST_UINT32",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": " State, name, etc... "
+  },
+  {
+    "name": ".SimuHmi",
+    "type": "BOOL",
+    "adsDataTypeStr": "ADST_BIT",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": ".Alarm",
+    "type": "ARRAY [0..10000] OF BOOL",
+    "adsDataTypeStr": "ADST_BIT",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "GV_Parameters.PerData",
+    "type": "ARRAY [0..9999] OF LREAL",
+    "adsDataTypeStr": "ADST_REAL64",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "General_PRG._tonAlmAck",
+    "type": "Tc2_Standard.TON",
+    "adsDataTypeStr": "ADST_BIGTYPE",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": ".C_DEFAULT_PERSISTENT_PATH",
+    "type": "STRING(80)",
+    "adsDataTypeStr": "ADST_STRING",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "HMI.CalibrationPos",
+    "type": "ARRAY [0..2] OF LREAL",
+    "adsDataTypeStr": "ADST_REAL64",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "TwinCAT_SystemInfoVarList._TaskOid_FastTask",
+    "type": "OTCID",
+    "adsDataTypeStr": "ADST_UINT32",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "GENERAL.OpPanelStartBtn.IN",
+    "type": "BOOL",
+    "adsDataTypeStr": "ADST_BIT",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": ""
+  },
+  {
+    "name": "Global_Variables.DEFAULT_ADS_TIMEOUT",
+    "type": "TIME",
+    "adsDataTypeStr": "ADST_UINT32",
+    "arrayDimension": 0,
+    "arrayInfo": [],
+    "comment": " Default ADS timeout value "
+  }
+]

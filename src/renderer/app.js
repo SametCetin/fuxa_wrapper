@@ -221,6 +221,204 @@ $('btnTagCopy').addEventListener('click', async () => {
   $('statusText').textContent = t('ui.tagsCopied', { count: rows.length });
 });
 
+// ---------------------------------------------------------------- ADS sembolleri
+// PLC sembolleri yalnız kullanıcı "Sembolleri oku" dediğinde okunur (ana süreç, ayrı kısa bağlantı).
+// Desteklenmeyen dizi/yapı sembolleri listelenir ama seçilemez; mevcut tag'ler korunur.
+async function openAdsSymbols() {
+  if (!state.project || modalOpen) return;
+  let list = null;
+  try { list = await window.fxw.adsDevices(); } catch { /* aşağıda gösterilir */ }
+  if (!list) {
+    openModal(t('ads.title'), [el('p', { class: 'err', text: t('op.failed') })],
+      [{ label: t('common.ok'), primary: true, onclick: closeModal }]);
+    return;
+  }
+  if (!list.devices.length) {
+    openModal(t('ads.title'), [el('p', { text: t('ads.noDevice') })],
+      [{ label: t('common.ok'), primary: true, onclick: closeModal }]);
+    return;
+  }
+
+  const ui = { devices: list.devices, deviceId: list.devices[0].id, symbols: null, loading: false };
+  const current = () => ui.devices.find((d) => d.id === ui.deviceId) || ui.devices[0];
+  const existing = () => new Set((current().addresses || []).map(a => a.toLowerCase()));
+  const selected = new Set();
+  let query = '';
+  let group = '';
+  let supportedOnly = true;
+  let failed = false;
+  let visible = [];
+
+  const deviceSelect = el('select', {},
+    ...ui.devices.map((d) => el('option', { value: d.id, text: `${d.name} (${d.address || d.type})` })));
+  deviceSelect.value = ui.deviceId;
+  const search = el('input', { type: 'search', placeholder: t('ads.search') });
+  const groupSelect = el('select', {});
+  const supported = el('input', { type: 'checkbox' });
+  supported.checked = true;
+  const selectAll = el('input', { type: 'checkbox' });
+  const tbody = el('tbody');
+  const status = el('p', { class: 'muted small' });
+  const summary = el('span', { class: 'muted' });
+  const table = el('table', { class: 'grid' },
+    el('thead', {}, el('tr', {},
+      el('th', {}, selectAll), el('th', { text: t('ads.colSymbol') }), el('th', { text: t('ads.colAdsType') }),
+      el('th', { text: t('ads.colTagType') }), el('th', { text: t('ads.colStatus') }))),
+    tbody);
+  const body = el('div', { class: 'ads-picker' },
+    el('div', { class: 'pane-bar' },
+      el('label', {}, el('span', { class: 'muted', text: `${t('ads.device')}: ` }), deviceSelect),
+      el('label', { class: 'check' }, supported, el('span', { text: t('ads.supportedOnly') })),
+      el('div', { class: 'spacer' }), summary),
+    el('div', { class: 'pane-bar' }, search, groupSelect),
+    el('div', { class: 'table-wrap' }, table),
+    status);
+
+  function canSelect(s) { return s.supported && !existing().has(s.name.toLowerCase()); }
+
+  function updateSummary() {
+    summary.textContent = t('ads.selected', { count: selected.size });
+    addBtn.disabled = ui.loading || selected.size === 0;
+    readBtn.disabled = ui.loading;
+    deviceSelect.disabled = ui.loading;
+  }
+
+  function updateSelectAll() {
+    const rows = visible.filter(canSelect);
+    const picked = rows.filter((s) => selected.has(s.name)).length;
+    selectAll.checked = rows.length > 0 && picked === rows.length;
+    selectAll.indeterminate = picked > 0 && picked < rows.length;
+    selectAll.disabled = rows.length === 0;
+  }
+
+  function refreshGroups() {
+    const all = ui.symbols || [];
+    const names = [...new Set(all.map((s) => s.group).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const options = [el('option', { value: '', text: t('ads.groupAll') })];
+    if (all.some((s) => s.group === '')) options.push(el('option', { value: '__global__', text: t('ads.groupGlobal') }));
+    for (const name of names) options.push(el('option', { value: name, text: name }));
+    groupSelect.replaceChildren(...options);
+    group = '';
+    groupSelect.value = '';
+  }
+
+  function renderRows() {
+    const used = existing();
+    const q = query.trim().toLowerCase();
+    visible = (ui.symbols || []).filter((s) => {
+      if (group === '__global__' ? s.group !== '' : group && s.group !== group) return false;
+      if (supportedOnly && !s.supported) return false;
+      return !q || `${s.name} ${s.type} ${s.tagType || ''}`.toLowerCase().includes(q);
+    });
+    tbody.replaceChildren(...visible.map((s) => {
+      const added = used.has(s.name.toLowerCase());
+      const disabled = !s.supported || added;
+      const box = el('input', { type: 'checkbox', ...(disabled ? { disabled: '' } : {}) });
+      box.checked = !disabled && selected.has(s.name);
+      box.addEventListener('change', () => {
+        if (box.checked) selected.add(s.name); else selected.delete(s.name);
+        updateSummary();
+        updateSelectAll();
+      });
+      const state = added ? t('ads.alreadyAdded') : !s.supported ? t(`ads.reason.${s.reason}`) : '';
+      return el('tr', { class: disabled ? 'muted' : '' },
+        el('td', {}, box), el('td', { title: s.name, text: s.name }), el('td', { text: s.type }),
+        el('td', { text: s.tagType || '—' }), el('td', { text: state }));
+    }));
+    if (!visible.length && !failed) {
+      tbody.append(el('tr', {}, el('td', { colspan: '5', class: 'empty', text: ui.symbols ? t('ads.noMatch') : t('ads.scanHint') })));
+    }
+    updateSummary();
+    updateSelectAll();
+  }
+
+  async function scan() {
+    if (ui.loading) return;
+    ui.loading = true;
+    ui.symbols = null;
+    selected.clear();
+    failed = false;
+    status.className = 'muted small';
+    status.textContent = t('ads.scanning');
+    renderRows();
+    let res = null;
+    try { res = await window.fxw.adsBrowse({ deviceId: ui.deviceId }); } catch (e) { res = { ok: false, message: e.message }; }
+    ui.loading = false;
+    if (res && res.ok) {
+      ui.symbols = res.symbols || [];
+      refreshGroups();
+      renderRows();
+      status.className = 'muted small';
+      if (!ui.symbols.length) { status.textContent = t('ads.noSymbols'); return; }
+      const supportedCount = ui.symbols.filter((s) => s.supported).length;
+      status.textContent = t('ads.count', { supported: supportedCount, total: ui.symbols.length });
+    } else {
+      ui.symbols = [];
+      failed = true;
+      refreshGroups();
+      renderRows();
+      status.className = 'err small';
+      status.textContent = res && res.reason === 'config'
+        ? (res.message || t('ads.configFailed', { error: '' }))
+        : t('ads.connectFailed', { error: (res && res.message) || '' });
+    }
+  }
+
+  async function doImport() {
+    if (ui.loading || !selected.size) return;
+    const byName = new Map((ui.symbols || []).map((s) => [s.name, s]));
+    const symbols = [...selected].map((name) => byName.get(name)).filter((s) => s && s.supported)
+      .map((s) => ({ name: s.name, type: s.type, adsType: s.adsType, comment: s.comment }));
+    ui.loading = true;
+    updateSummary();
+    let res = null;
+    try { res = await window.fxw.adsImport({ deviceId: ui.deviceId, symbols }); } catch (e) { res = { ok: false, error: e.message }; }
+    ui.loading = false;
+    if (!res || !res.ok) {
+      status.className = 'err small';
+      status.textContent = (res && res.error) || t('ads.importFailed');
+      updateSummary();
+      return;
+    }
+    current().addresses = res.addresses || current().addresses;
+    selected.clear();
+    status.className = 'ok small';
+    status.textContent = t('ads.importResult', { added: res.added.length, skipped: res.skipped.length });
+    renderRows();
+    await refreshAnalysis();
+  }
+
+  search.addEventListener('input', () => { query = search.value; renderRows(); });
+  groupSelect.addEventListener('change', () => { group = groupSelect.value; renderRows(); });
+  supported.addEventListener('change', () => { supportedOnly = supported.checked; renderRows(); });
+  selectAll.addEventListener('change', () => {
+    for (const s of visible.filter(canSelect)) {
+      if (selectAll.checked) selected.add(s.name); else selected.delete(s.name);
+    }
+    renderRows();
+  });
+  deviceSelect.addEventListener('change', () => {
+    ui.deviceId = deviceSelect.value;
+    ui.symbols = null;
+    selected.clear();
+    failed = false;
+    status.className = 'muted small';
+    status.textContent = '';
+    refreshGroups();
+    renderRows();
+  });
+
+  openModal(t('ads.title'), [body], [
+    { label: t('common.cancel'), onclick: closeModal },
+    { label: t('ads.read'), onclick: scan },
+    { label: t('ads.add'), primary: true, disabled: true, onclick: doImport },
+  ], { wide: true });
+  const buttons = $('modalButtons').querySelectorAll('button');
+  const readBtn = buttons[1];
+  const addBtn = buttons[2];
+  renderRows();
+}
+
 // ---------------------------------------------------------------- kontrol alt görünümleri
 document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => {
   const tags = button.dataset.control === 'tags';
@@ -233,7 +431,7 @@ document.querySelectorAll('[data-control]').forEach(button => button.addEventLis
 }));
 
 // ---------------------------------------------------------------- modal
-function openModal(title, bodyNodes, buttons) {
+function openModal(title, bodyNodes, buttons, { wide = false } = {}) {
   modalOpen = true;
   syncEditor();
   $('modalTitle').textContent = title;
@@ -242,6 +440,7 @@ function openModal(title, bodyNodes, buttons) {
     class: b.primary ? 'primary' : '', text: b.label, onclick: b.onclick,
     ...(b.disabled ? { disabled: '' } : {}),
   })));
+  $('modalBody').parentElement.classList.toggle('wide', wide);
   $('modal').hidden = false;
   const first = $('modalButtons').querySelector('button.primary:not(:disabled)') || $('modalButtons').querySelector('button');
   if (first) first.focus();
@@ -311,6 +510,7 @@ $('btnRetry').addEventListener('click', () => window.fxw.retryFuxa());
 
 window.fxw.onCommand((cmd) => {
   if (cmd === 'publish') publish();
+  else if (cmd === 'ads-symbols') openAdsSymbols();
   else if (cmd.startsWith('tab:') && state.project) showTab(cmd.slice(4));
 });
 window.fxw.onShowTab((tab) => {
