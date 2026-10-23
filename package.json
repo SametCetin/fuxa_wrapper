@@ -33,6 +33,7 @@
     "appId": "org.sct.fuxaw",
     "productName": "fuxaw",
     "electronDist": "node_modules/electron/dist",
+    "afterPack": "scripts/after-pack.js",
     "files": [
       "src/**/*",
       "package.json"
@@ -96,6 +97,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "installer/nsis-runtime.nsh",
       "artifactName": "fuxaw-setup-${buildVersion}.${ext}"
     },
     "linux": {
