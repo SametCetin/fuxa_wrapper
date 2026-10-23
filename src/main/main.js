@@ -23,6 +23,7 @@ const { buildAdsDevice } = require('../core/connections');
 const sync = require('../core/sync');
 const { installDimensionCommit } = require('./editorDimensions');
 const { readDeviceSelection, openDevicePage } = require('./editorDevices');
+const { createUpdater } = require('./updater');
 const i18n = require('../core/i18n');
 
 const { t } = i18n;
@@ -43,6 +44,8 @@ let fuxaState = { status: 'starting', url: null, error: null };
 let pendingOpen = null; // FUXA hazır olmadan istenen dosya
 let busy = false;
 let lastTagDevice = null;
+let quitting = false; // güncelleme kurulumu: kapatma sorusu zaten soruldu
+let updater = null;
 
 // Açık proje
 const cur = {
@@ -227,6 +230,7 @@ async function revealMain() {
   if (!win || win.isDestroyed()) return;
   win.show();
   if (splash) splash.close();
+  updater.scheduleStartupCheck();
 }
 
 // FUXA editörünün kendi proje menüsü (New/Save/Open/Rename) uygulamanın Dosya menüsüyle çakışır: gizli.
@@ -984,6 +988,7 @@ function buildMenu() {
         { label: t('menu.log'), click: () => shell.openPath(logFile()) },
         { label: t('menu.dataDir'), click: () => shell.openPath(app.getPath('userData')) },
         { type: 'separator' },
+        { label: t('menu.checkUpdates'), click: () => updater.check(true) },
         {
           label: t('menu.about', { app: APP_NAME }),
           click: () => message('info', `${APP_NAME} ${APP_VERSION}`, t('about.detail')),
@@ -1068,7 +1073,7 @@ function createWindow() {
 
   let closing = false;
   win.on('close', async (e) => {
-    if (closing || !isDirty()) return;
+    if (closing || quitting || !isDirty()) return;
     e.preventDefault();
     if (busy) return;
     if (await confirmDiscard('discard.beforeQuit')) {
@@ -1099,6 +1104,13 @@ if (!app.requestSingleInstanceLock()) {
     app.setName(APP_NAME);
     i18n.setLanguage(initialLanguage());
     pendingOpen = pendingOpen || fileArg(process.argv);
+    updater = createUpdater({
+      window: () => win,
+      ask: async (opts) => (await dialog.showMessageBox(win, { title: APP_NAME, noLink: true, ...opts })).response,
+      confirmDiscard,
+      beforeInstall: () => { quitting = true; },
+      logPath: path.join(app.getPath('logs'), 'update.log'),
+    });
     registerIpc();
     buildMenu();
     createSplash();
