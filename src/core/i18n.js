@@ -74,6 +74,7 @@
 
       'project.untitled': 'Adsız',
       'engine.notRunning': 'Uygulama bileşenleri çalışmıyor: {error}',
+      'engine.runtimeMissing': 'Uygulama bileşenleri bulunamadı: {path}. Kurulum paketini (fuxaw-setup) yeniden çalıştırın.',
       'engine.notReady': 'Bileşenler henüz yüklenmedi, birkaç saniye sonra tekrar dene.',
       'engine.loading': 'Bileşenler yükleniyor…',
       'engine.error': 'Bileşen hatası',
@@ -352,6 +353,7 @@
 
       'project.untitled': 'Untitled',
       'engine.notRunning': 'App components are not running: {error}',
+      'engine.runtimeMissing': 'App components not found: {path}. Run the setup package (fuxaw-setup) again.',
       'engine.notReady': 'Components are still loading; try again in a few seconds.',
       'engine.loading': 'Loading components…',
       'engine.error': 'Component error',

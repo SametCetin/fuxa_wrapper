@@ -9,7 +9,7 @@ Opens, edits and saves [FUXA](https://github.com/frangoteam/FUXA) HMI projects i
 - **Publish** produces the one file that goes to the target machine: `download-<project>.cmd`, with the project embedded. Nothing is sent over the network; the file is copied by hand.
 - A single-file **target machine installer**: `install-fuxa.cmd` installs FUXA, Node.js and the ADS (fuxaw) driver.
 
-Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). An app installed with the setup package (`fuxaw-setup-<version>.exe`) updates itself: on startup it checks for a new version, downloads it when you agree, then restarts and installs it (also **Help → Check for Updates…** (Güncellemeleri denetle…)). The portable zip is not updated.
+Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). An app installed with the setup package (`fuxaw-setup-<version>.exe`) updates itself: on startup it checks for a new version, downloads it when you agree, then restarts and installs it (also **Help → Check for Updates…** (Güncellemeleri denetle…)). The portable zip is not updated. The setup package installs the bundled components (FUXA + Node.js) once, separately from the app, under `C:\ProgramData\fuxaw-runtime\`; updates that keep the same components only replace the app (~175 files).
 
 > The app's interface is available in English and Turkish (**Settings → Language**). Menu names below are the English labels, with the Turkish label in parentheses.
 

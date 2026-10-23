@@ -1,7 +1,8 @@
 'use strict';
 // Uygulamanın içinde gelen FUXA sunucusu: bul, başlat (boş portta, sadece 127.0.0.1), bekle, durdur.
 //
-// Paketlenmiş uygulamada:  resources/node/node(.exe) + resources/fuxa/node_modules/@frangoteam/fuxa
+// Paketlenmiş uygulamada:  <runtime>/node/node(.exe) + <runtime>/fuxa/node_modules/@frangoteam/fuxa
+//                          <runtime> = resources/ (kurulumsuz) ya da %ProgramData%\fuxaw-runtime\<kimlik> (NSIS), bkz. runtime.js
 // Geliştirmede:            vendor/node (varsa) veya PATH'teki node + fuxa-runtime/node_modules/...
 // FUXA verisi:             <userData>/fuxa/_appdata (sadece bu uygulamanın; kullanıcı projesi .fxprj'dedir)
 
@@ -11,6 +12,7 @@ const path = require('node:path');
 const { spawn, execFileSync } = require('node:child_process');
 const { installEditorTagClear } = require('./editorTagClear');
 const { t } = require('../core/i18n');
+const { locateRuntime } = require('./runtime');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const IS_WIN = process.platform === 'win32';
@@ -22,9 +24,16 @@ function resourcesDir(packaged) {
   return packaged ? process.resourcesPath : null;
 }
 
+/** FUXA ve Node'un kökü (paketlenmiş). Kurulum runtime'ı açmamışsa ne yapılacağını söyler. */
+function runtimeDir() {
+  const r = locateRuntime({ resourcesPath: process.resourcesPath });
+  if (r.missing) throw new FuxaError(t('engine.runtimeMissing', { path: r.missing }));
+  return r.dir;
+}
+
 function findFuxaMain(packaged) {
   const base = packaged
-    ? path.join(resourcesDir(true), 'fuxa', 'node_modules')
+    ? path.join(runtimeDir(), 'fuxa', 'node_modules')
     : path.join(ROOT, 'fuxa-runtime', 'node_modules');
   const main = path.join(base, '@frangoteam', 'fuxa', 'main.js');
   if (!fs.existsSync(main)) {
@@ -45,7 +54,7 @@ function onPath(exe) {
 
 function findNode(packaged) {
   if (packaged) {
-    const p = path.join(resourcesDir(true), 'node', NODE_EXE);
+    const p = path.join(runtimeDir(), 'node', NODE_EXE);
     if (fs.existsSync(p)) return p;
     throw new FuxaError(t('engine.nodeMissingPackaged', { path: p }));
   }
