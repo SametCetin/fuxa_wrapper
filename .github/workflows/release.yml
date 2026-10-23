@@ -1,5 +1,5 @@
 # Release: main dalındaki bir commit'e V<sürüm> etiketi gönderilince, ör. V27.1.10.26
-#   npm run version:set -- 27.1.10.26 → commit → git tag V27.1.10.26 → git push --follow-tags
+#   npm run version:set -- 27.1.10.26 → commit → git tag V27.1.10.26 → git push origin main V<sürüm>
 # Windows'ta test eder, üç çıktıyı derler ve GitHub Release olarak yayınlar:
 #   fuxaw-setup-<sürüm>.exe        fuxaw kurulum paketi (NSIS)
 #   latest.yml, fuxaw-setup-<sürüm>.exe.blockmap   uygulama içi güncelleme (electron-updater; src/main/updater.js)

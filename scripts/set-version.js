@@ -5,7 +5,7 @@
 //   fullVersion          27.1.10.26   uygulamanın gösterdiği sürüm, dosya adları, release etiketi (V27.1.10.26)
 //   version              27.1.10026   semver: 3. parça × 1000 + 4. parça (güncelleyici aynı ayın sürümlerini ayırsın)
 //   build.buildVersion   27.1.10.26   Windows dosya sürümü
-// package-lock.json'daki kök sürüm de güncellenir. Sonra: commit, git tag V<sürüm>, git push --follow-tags.
+// package-lock.json'daki kök sürüm de güncellenir. Sonra: commit, git tag V<sürüm>, git push origin main V<sürüm>.
 
 const fs = require('node:fs');
 const path = require('node:path');
