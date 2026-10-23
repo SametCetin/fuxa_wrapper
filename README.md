@@ -9,7 +9,7 @@ Opens, edits and saves [FUXA](https://github.com/frangoteam/FUXA) HMI projects i
 - **Publish** produces the one file that goes to the target machine: `download-<project>.cmd`, with the project embedded. Nothing is sent over the network; the file is copied by hand.
 - A single-file **target machine installer**: `install-fuxa.cmd` installs FUXA, Node.js and the ADS (fuxaw) driver.
 
-Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases).
+Downloads: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). An app installed with the setup package (`fuxaw-setup-<version>.exe`) updates itself: on startup it checks for a new version, downloads it when you agree, then restarts and installs it (also **Help → Check for Updates…** (Güncellemeleri denetle…)). The portable zip is not updated.
 
 > The app's interface is available in English and Turkish (**Settings → Language**). Menu names below are the English labels, with the Turkish label in parentheses.
 
@@ -109,7 +109,7 @@ npm run dist           # setup package (NSIS)
 
 Development needs Node.js 22+ (it also runs FUXA). For packaging, `scripts/fetch-node.js` downloads a pinned Node.js into `vendor/node/`.
 
-**Versions and releases:** versions have four parts (e.g. `27.1.10.26`). On `main`: `npm run version:set -- 27.1.10.27`, commit, `git tag V27.1.10.27`, `git push --follow-tags`. When the tag arrives, GitHub Actions tests, builds and puts `fuxaw-setup-<version>.exe`, `fuxaw-win-x64-<version>.zip`, `install-fuxa.cmd` and `uninstall-fuxa.cmd` on the [Releases](https://github.com/SametCetin/fuxa_wrapper/releases) page (`.github/workflows/release.yml`). The EXEs are unsigned (SmartScreen warning).
+**Versions and releases:** versions have four parts (e.g. `27.1.10.26`). On `main`: `npm run version:set -- 27.1.10.27`, commit, `git tag V27.1.10.27`, `git push --follow-tags`. When the tag arrives, GitHub Actions tests, builds and puts `fuxaw-setup-<version>.exe`, `fuxaw-win-x64-<version>.zip`, `install-fuxa.cmd`, `uninstall-fuxa.cmd` and the updater's `latest.yml` + `.blockmap` on the [Releases](https://github.com/SametCetin/fuxa_wrapper/releases) page (`.github/workflows/release.yml`). The npm version is `26.1.10.22` → `26.1.10022` so releases in the same month sort correctly (`src/core/version.js`). The EXEs are unsigned (SmartScreen warning).
 
 VS Code: **Debug** (runs the app; main process and window debugged together), **Release** (setup package, `dist/`) and **Hızlı EXE** (quick EXE: unsigned, unpacked Windows x64 build, `dist/fast/win-unpacked/fuxaw.exe`) in Run and Debug. Ctrl+Shift+B = Release. The whole `win-unpacked` folder is needed to run or move the quick EXE.
 

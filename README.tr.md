@@ -9,7 +9,7 @@
 - **Publish**, hedef makineye gidecek tek dosyayı üretir: `download-<proje>.cmd` (proje içine gömülü). Ağ üzerinden hiçbir yere bir şey gönderilmez; dosya elle taşınır.
 - **Hedef makine** için tek dosyalık kurulum: `install-fuxa.cmd` FUXA'yı, Node.js'i ve ADS (fuxaw) sürücüsünü kurar.
 
-İndirmeler: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases).
+İndirmeler: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). Kurulum paketiyle (`fuxaw-setup-<sürüm>.exe`) kurulan uygulama kendini günceller: açılışta yeni sürümü denetler, onay verirsen indirir, yeniden başlatıp kurar (**Yardım → Güncellemeleri denetle…** ile elle de). Kurulumsuz zip güncellenmez.
 
 ## Kullanım
 
@@ -107,7 +107,7 @@ npm run dist           # kurulum paketi (NSIS)
 
 Geliştirmede Node.js 22+ gerekir (FUXA'yı da o çalıştırır). Paket için `scripts/fetch-node.js` sabit sürüm Node.js'i `vendor/node/`'a indirir.
 
-**Sürüm ve release:** sürüm dört parçalıdır (ör. `27.1.10.26`). `main` dalında `npm run version:set -- 27.1.10.27`, commit, `git tag V27.1.10.27`, `git push --follow-tags`. Etiket gönderilince GitHub Actions test eder, derler ve [Releases](https://github.com/SametCetin/fuxa_wrapper/releases) sayfasına `fuxaw-setup-<sürüm>.exe`, `fuxaw-win-x64-<sürüm>.zip`, `install-fuxa.cmd` ve `uninstall-fuxa.cmd` koyar (`.github/workflows/release.yml`). EXE'ler imzasız (SmartScreen uyarısı).
+**Sürüm ve release:** sürüm dört parçalıdır (ör. `27.1.10.26`). `main` dalında `npm run version:set -- 27.1.10.27`, commit, `git tag V27.1.10.27`, `git push --follow-tags`. Etiket gönderilince GitHub Actions test eder, derler ve [Releases](https://github.com/SametCetin/fuxa_wrapper/releases) sayfasına `fuxaw-setup-<sürüm>.exe`, `fuxaw-win-x64-<sürüm>.zip`, `install-fuxa.cmd`, `uninstall-fuxa.cmd` ve güncelleyicinin okuduğu `latest.yml` + `.blockmap` koyar (`.github/workflows/release.yml`). npm sürümü `26.1.10.22` → `26.1.10022` biçimindedir (aynı ayın sürümleri sıralansın, `src/core/version.js`). EXE'ler imzasız (SmartScreen uyarısı).
 
 VS Code: Çalıştır ve Hata Ayıkla listesinde **Debug** (uygulamayı açar, ana süreç ve pencere arayüzü birlikte ayıklanır), **Release** (kurulum paketi, `dist/`) ve **Hızlı EXE** (imzasız, kurulumsuz Windows x64 paketi, `dist/fast/win-unpacked/fuxaw.exe`). Ctrl+Shift+B = Release. Hızlı EXE'yi çalıştırmak/taşımak için tüm `win-unpacked` klasörü gerekir.
 
