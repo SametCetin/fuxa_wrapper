@@ -82,6 +82,13 @@
         "role": "Editor"
       }
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "SametCetin",
+        "repo": "fuxa_wrapper"
+      }
+    ],
     "win": {
       "target": "nsis"
     },
@@ -89,7 +96,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "fuxaw-setup-${version}.${ext}"
+      "artifactName": "fuxaw-setup-${buildVersion}.${ext}"
     },
     "linux": {
       "target": [
@@ -102,5 +109,8 @@
       "target": "dmg",
       "category": "public.app-category.developer-tools"
     }
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

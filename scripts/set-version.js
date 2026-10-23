@@ -1,14 +1,15 @@
 'use strict';
 // Sürümü ayarlar: node scripts/set-version.js 27.1.10.26   (npm run version:set -- 27.1.10.26; başta V/v olabilir)
-// fuxaw sürümü dört parçalıdır (ör. 27.1.10.26), etiketi V<sürüm>. npm ve Electron üç parçalı semver
-// istediği için package.json'da:
+// fuxaw sürümü dört parçalıdır (ör. 27.1.10.26), etiketi V<sürüm>. npm, Electron ve güncelleyici üç parçalı
+// semver istediği için package.json'da (eşleme: src/core/version.js):
 //   fullVersion          27.1.10.26   uygulamanın gösterdiği sürüm, dosya adları, release etiketi (V27.1.10.26)
-//   version              27.1.10      ilk üç parça (npm/Electron)
+//   version              27.1.10026   semver: 3. parça × 1000 + 4. parça (güncelleyici aynı ayın sürümlerini ayırsın)
 //   build.buildVersion   27.1.10.26   Windows dosya sürümü
 // package-lock.json'daki kök sürüm de güncellenir. Sonra: commit, git tag V<sürüm>, git push --follow-tags.
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { toSemver } = require('../src/core/version');
 
 const ROOT = path.resolve(__dirname, '..');
 const arg = (process.argv[2] || '').replace(/^[vV]/, '');
@@ -16,7 +17,7 @@ if (!/^\d+\.\d+\.\d+\.\d+$/.test(arg)) {
   console.error('Kullanım: node scripts/set-version.js 27.1.10.26   (dört sayısal parça)');
   process.exit(1);
 }
-const semver = arg.split('.').slice(0, 3).join('.');
+const semver = toSemver(arg);
 
 // Sadece ilgili satırlar değiştirilir; dosyanın geri kalan biçimi korunur.
 function edit(file, fn, allowUnchanged = false) {

@@ -2,9 +2,12 @@
 #   npm run version:set -- 27.1.10.26 → commit → git tag V27.1.10.26 → git push --follow-tags
 # Windows'ta test eder, üç çıktıyı derler ve GitHub Release olarak yayınlar:
 #   fuxaw-setup-<sürüm>.exe        fuxaw kurulum paketi (NSIS)
+#   latest.yml, fuxaw-setup-<sürüm>.exe.blockmap   uygulama içi güncelleme (electron-updater; src/main/updater.js)
 #   fuxaw-win-x64-<sürüm>.zip      kurulumsuz fuxaw (win-unpacked klasörü)
 #   install-fuxa.cmd, uninstall-fuxa.cmd   hedef makine kurulumu (tek dosya; npm run dist:installer)
-# <sürüm> package.json fullVersion'dur (dört parça); npm/Electron'un üç parçalı version'ı ondan türetilir.
+# <sürüm> package.json fullVersion'dur (dört parça); npm/Electron'un üç parçalı version'ı ondan türetilir
+# (26.1.10.22 → 26.1.10022, src/core/version.js). Kurulu uygulamalar bu release'in latest.yml'ini okuyup günceller;
+# release taslak/ön sürüm olmamalı (güncelleyici GitHub'ın "latest" release'ine bakar).
 # EXE'ler imzasızdır (SmartScreen uyarısı verir).
 name: Release
 
@@ -67,10 +70,13 @@ jobs:
         shell: pwsh
         run: |
           $out = New-Item -ItemType Directory -Force release
-          # electron-builder dosyayı üç parçalı semver ile adlandırır (fuxaw-setup-27.1.10.exe); release'te tam sürüm.
-          $setup = @(Get-ChildItem dist -Filter 'fuxaw-setup-*.exe')
-          if ($setup.Count -ne 1) { throw "dist altında tek bir fuxaw-setup-*.exe bekleniyordu ($($setup.Count))." }
-          Copy-Item $setup[0].FullName (Join-Path $out "fuxaw-setup-$env:VERSION.exe")
+          # Kurulum paketi adı tam sürümle (artifactName ${buildVersion}); latest.yml bu adı ve SHA512'yi taşır, adı değişmemeli.
+          $setup = "dist/fuxaw-setup-$env:VERSION.exe"
+          foreach ($f in $setup, "$setup.blockmap", 'dist/latest.yml') {
+            if (-not (Test-Path $f)) { throw "$f yok (electron-builder publish ayarı / artifactName)." }
+            Copy-Item $f $out
+          }
+          if (-not (Select-String -Path dist/latest.yml -SimpleMatch "fuxaw-setup-$env:VERSION.exe" -Quiet)) { throw 'latest.yml kurulum paketinin adını içermiyor.' }
           7z a -tzip "$out/fuxaw-win-x64-$env:VERSION.zip" ./dist/fast/win-unpacked/* | Out-Null
           if ($LASTEXITCODE) { throw '7z zip oluşturamadı.' }
           $inst = Get-ChildItem dist/installer -Directory | Select-Object -First 1
