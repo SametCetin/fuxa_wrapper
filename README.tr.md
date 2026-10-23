@@ -9,7 +9,7 @@
 - **Publish**, hedef makineye gidecek tek dosyayı üretir: `download-<proje>.cmd` (proje içine gömülü). Ağ üzerinden hiçbir yere bir şey gönderilmez; dosya elle taşınır.
 - **Hedef makine** için tek dosyalık kurulum: `install-fuxa.cmd` FUXA'yı, Node.js'i ve ADS (fuxaw) sürücüsünü kurar.
 
-İndirmeler: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). Kurulum paketiyle (`fuxaw-setup-<sürüm>.exe`) kurulan uygulama kendini günceller: açılışta yeni sürümü denetler, onay verirsen indirir, yeniden başlatıp kurar (**Yardım → Güncellemeleri denetle…** ile elle de). Kurulumsuz zip güncellenmez.
+İndirmeler: [Releases](https://github.com/SametCetin/fuxa_wrapper/releases). Kurulum paketiyle (`fuxaw-setup-<sürüm>.exe`) kurulan uygulama kendini günceller: açılışta yeni sürümü denetler, onay verirsen indirir, yeniden başlatıp kurar (**Yardım → Güncellemeleri denetle…** ile elle de). Kurulumsuz zip güncellenmez. Kurulum paketi gömülü bileşenleri (FUXA + Node.js) uygulamadan ayrı, `C:\ProgramData\fuxaw-runtime\` altına bir kez kurar; bileşenler değişmeyen güncellemelerde yalnız uygulama (~175 dosya) yenilenir.
 
 ## Kullanım
 
